@@ -1,0 +1,12 @@
+{
+    "decoded": {
+        "regular_url_query": {
+            "FIRSTNAME": "Robert", 
+            "LASTNAME": "Moore", 
+            "MIDDLENAME": "Herbert"
+        }
+    }, 
+    "encoded": {
+        "regular_url_query": "FIRSTNAME=Robert&MIDDLENAME=Herbert&LASTNAME=Moore"
+    }
+}

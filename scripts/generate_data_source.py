@@ -21,9 +21,9 @@ ENCODED = {
 # Dictionary containing decoded values
 DECODED = {
     'regular_url_query': {
-        'FIRSTNAME': 'Robert',
-        'MIDDLENAME': 'Herbert',
-        'LASTNAME': 'Moore',
+        'FIRSTNAME': ['Robert'],
+        'MIDDLENAME': ['Herbert'],
+        'LASTNAME': ['Moore'],
     },
 }
 

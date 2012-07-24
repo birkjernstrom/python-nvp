@@ -16,6 +16,7 @@ more specific test methods can reside here too.
 
 import sys
 import json
+import logging
 import os.path
 import unittest
 
@@ -124,7 +125,7 @@ class TestDataSource(unittest.TestCase):
         # should be filtered through in order to decode or encode.
         execute_filter = getattr(nvp, self.METHOD_FILTERS[to_decode])
 
-        for key, value in target.items():
+        for key, value in target.iteritems():
             to_match = self.ensure_sorted_value(outcome[key])
             filtered_value = self.ensure_sorted_value(execute_filter(value))
 

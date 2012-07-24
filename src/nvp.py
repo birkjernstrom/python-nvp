@@ -7,11 +7,11 @@ MINOR_VERSION = 0
 PATCH_VERSION = 1
 LABEL_VERSION = 'dev'
 
-__version__ = '.'.join((
+__version__ = '.'.join(map(str, (
     MAJOR_VERSION,
     MINOR_VERSION,
     PATCH_VERSION,
-))
+)))
 
 if LABEL_VERSION:
     __version__ = '-'.join((__version__, LABEL_VERSION))

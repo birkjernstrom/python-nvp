@@ -1,9 +1,59 @@
 # -*- coding: utf-8 -*-
 """
+Pythonic implementation of the NVP format.
+
+NVP is in essence nothing else than regular HTTP query strings in
+which keys can conform to one of three conventions in order to specify
+their relationship - hierarchically - to each other.
+
+For instance the query string::
+
+    ?foo[0].a=1&foo[0].b=2&foo[1]='helloworld'&foobar=1337
+
+Is intended to reflect the following hierarchical dictionary::
+
+    {
+        'foo': [
+            {
+                'a': 1,
+                'b': 2
+            },
+            'helloworld'
+        ],
+        'foobar': 1337
+    }
+
+The shown query string utilized the bracket style of indicating sequences.
+There are two other methods of achieving this in NVP. Sigh.
+
+Instead of brackets parentheses are supported too. In which case the
+previous query string could be re-written using this convention to::
+
+    ?foo(0).a=1&foo(0).b=2&foo(1)='helloworld'&foobar=1337
+
+The last method of indicating sequences is using the L_ key prefix.
+Along with appending the index directly after the last key character.
+The previous query string could be re-written using this convention to::
+
+    ?L_foo0.a=1&L_foo0.b=2&L_foo1='helloworld'&foobar=1337
+
+
+The format was introduced by PayPal and is heavily utilized in
+their API suites. More information about the format is thus best found
+in their documentation at::
+
+    http://bit.ly/ruw99i
+
+
+However, although the list is short, other services utilize the format
+in their API too. For instance Payson - a Swedish payment provider.
+
+The purpose with this package is to enable more Pythonic implementations
+of these APIs and to significantly ease communication with them.
+
+This package will expose an API similar to ``simplejson``, ``marshal``
+and ``pickle``, i.e using load & loads to decode and dump & dumps to encode.
 """
-
-
-
 
 __author__ = 'Birk Nilson <birk@tictail.com>'
 __version__ = '0.0.1-dev'

@@ -55,7 +55,7 @@ def is_dict(obj):
     return hasattr(obj, '__getitem__') and hasattr(obj, 'setdefault')
 
 
-def is_sequence(obj):
+def is_non_string_sequence(obj):
     """Check whether given ``obj`` is either
     a ``tuple``, ``list``, ``set`` or ``frozenset``.
 
@@ -347,7 +347,7 @@ def _convert_into_hierarchical_dict(destination,
     k, remaining_ks = parse_hierarchical_key_path(keys, **kwargs)
 
     # Check whether we are intended to set a key in a dict or append to a list
-    is_current_sequential = is_sequence(destination)
+    is_current_sequential = is_non_string_sequence(destination)
 
     # We need to be aware of whether the next recursion has the intention
     # of appending values to a list or set keys in a dictionary. Thus

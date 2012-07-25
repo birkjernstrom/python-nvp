@@ -87,7 +87,15 @@ def sequence_has_index(sequence, index):
 ###############################################################################
 
 def get_hierarchical_pairs(source, sequence_type=TYPE_SEQUENCE_DEFAULT):
-    """
+    """Retrieve a list of tuples where the first item is the hierarchical
+    key and the second its corresponding value.
+
+    This list can be utilized along with ``urllib.urlencode`` in order
+    to generate an NVP query string.
+
+    :param source: The dictionary to convert into NVP pairs
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
     """
     if not is_dict(source):
         message = 'Cannot generate NVP pairs for non-dict object: %s'
@@ -282,6 +290,9 @@ def get_sequence_key_components(sequence_type, key):
         >>> nvp.util.get_sequence_key_components('bracket', 'keyname[0]')
         '(keyname, 0)'
 
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    :param key: The key to retrieve sequence_components from
     """
     func = _SEQUENCE_KEY_FUNCS.get(sequence_type, None)
     if func is not None:
@@ -292,6 +303,14 @@ def get_sequence_key_components(sequence_type, key):
 
 
 def generate_sequence_key(key, index, sequence_type=TYPE_SEQUENCE_DEFAULT):
+    """Generate sequence key according to NVP convention of type
+    specified in ``sequence_type``.
+
+    :param key: The pure key without sequential index referencing
+    :param index: The sequence index to encode in the sequence key
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    """
     if sequence_type == TYPE_SEQUENCE_BRACKET:
         return '%s[%d]' % (key, index)
 
@@ -339,7 +358,19 @@ def _convert_into_list(source,
                        destination=None,
                        keys=None,
                        depth=0):
-    """
+    """Recursively convert given ``source`` dictionary into NVP
+    pairs which are stored as tuples in the ``destination`` list.
+
+    This list can be utilized along with ``urllib.urlencode`` in order
+    to generate an NVP query string.
+
+    :param source: The dictionary to convert into NVP pairs
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    :param destination: The list in which pairs should be appended
+    :param keys: List of key components in current NVP pair to generate
+                 hierarchical key path from
+    :param depth: The current depth of the recursion
     """
     # Bail in case sequence type 'prefix' is requested and given
     # source directory contains nested dictionaries or lists.

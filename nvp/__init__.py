@@ -58,6 +58,7 @@ and ``pickle``, i.e using load & loads to decode and dump & dumps to encode.
 __author__ = 'Birk Nilson <birk@tictail.com>'
 __version__ = '0.0.1-dev'
 __all__ = [
+    'util',
     'dump', 'dumps',
     'load', 'loads',
 ]
@@ -65,13 +66,7 @@ __all__ = [
 
 from urllib import urlencode
 from urlparse import parse_qs
-
-#: The string which indicates a key path correlating to the
-#: hierarchical relationship in which the associated value
-#: is stored in the decoded dictionary. In other words the
-#: encoded key path ``foo.bar`` corresponds to the value
-#: stored in the decoded dictionary at ``dict['foo']['bar']``
-KEY_HIERARCHY_SEPARATOR = '.'
+from nvp import util
 
 
 ###############################################################################
@@ -79,7 +74,7 @@ KEY_HIERARCHY_SEPARATOR = '.'
 ###############################################################################
 
 def dumps(obj):
-    return urlencode(_convert_list_values(obj))
+    return urlencode(obj, True)
 
 
 def dump():
@@ -89,10 +84,17 @@ def dump():
 def loads(string,
           keep_blank_values=False,
           strict_parsing=False,
-          keep_list_values=True,
+          strict_key_parsing=True,
           get_hierarchical=True):
-    """Decode given NVP string.
+    """Decode given NVP ``string`` into a dictionary.
 
+    :param string: The encoded NVP string to decode
+    :param keep_blank_values: Whether to retain keys with undefined values
+    :param strict_parsing: Whether to use strict parsing of the query string
+    :param strict_key_parsing: Whether to raise an exception in case errors
+                               are found during parsing of given the NVP keys.
+    :param get_hierarchical: Whether to decode into a single-level or
+                             hierarchical dictionary.
     """
     # In case we receive an object which is considered False in an expression
     # we return an empty dictionary. The reason is because NVP is in essence
@@ -103,47 +105,18 @@ def loads(string,
 
     # In case the value is not a string we consider it decoded since no other
     # type is allowed nor can be decoded in this implementation.
-    if not (hasattr(string, '__getitem__') and hasattr(string, 'join')):
+    if not util.is_string(string):
         return string
 
     unhierarchical = parse_qs(string,
                               keep_blank_values=keep_blank_values,
                               strict_parsing=strict_parsing)
 
-    if not keep_list_values:
-        unhierarchical = _convert_list_values(unhierarchical)
-
     if not get_hierarchical:
         return unhierarchical
-
-    hierarchical = get_hierarchical_dict(unhierarchical)
-    return hierarchical
+    return util.get_hierarchical_dict(unhierarchical,
+                                      strict_key_parsing=strict_key_parsing)
 
 
 def load():
     pass
-
-
-###############################################################################
-# HELPER FUNCTIONS
-###############################################################################
-
-def get_hierarchical_dict(source):
-    return source
-
-
-###############################################################################
-# INTERNAL FUNCTIONS
-###############################################################################
-
-def _convert_list_values(source):
-    converted = {}
-    for key, value in source.iteritems():
-        if hasattr(value, '__getitem__'):
-            if hasattr(value, 'setdefault'):
-                value = _convert_list_values(value)
-            elif hasattr(value, 'append'):
-                value = value if len(value) > 1 else value[0]
-
-        converted[key] = value
-    return converted

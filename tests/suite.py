@@ -38,8 +38,50 @@ def get_relative_as_abspath(path):
 # inserted in the beginning of the sys.path list the
 # local version of the NVP module is ensured to be the one
 # imported rather than one located in site-packages for instance.
-sys.path.insert(0, get_relative_as_abspath('../src'))
+sys.path.insert(0, get_relative_as_abspath('../'))
 import nvp
+import nvp.util
+
+
+class TestUtils(unittest.TestCase):
+    def test_is_string(self):
+        self.assertTrue(nvp.util.is_string('Foobar'))
+
+        self.assertFalse(nvp.util.is_string(dict(a=1)))
+        self.assertFalse(nvp.util.is_string(1))
+        self.assertFalse(nvp.util.is_string(1.33))
+        self.assertFalse(nvp.util.is_string([3]))
+        self.assertFalse(nvp.util.is_string((1,)))
+        self.assertFalse(nvp.util.is_string(set([])))
+        self.assertFalse(nvp.util.is_string(frozenset([])))
+
+    def test_is_dict(self):
+        self.assertTrue(nvp.util.is_dict(dict(a=1)))
+
+        self.assertFalse(nvp.util.is_dict('Foobar'))
+        self.assertFalse(nvp.util.is_dict(1))
+        self.assertFalse(nvp.util.is_dict(1.33))
+        self.assertFalse(nvp.util.is_dict([3]))
+        self.assertFalse(nvp.util.is_dict((1,)))
+        self.assertFalse(nvp.util.is_string(set([])))
+        self.assertFalse(nvp.util.is_string(frozenset([])))
+
+    def test_get_key_sequence_type(self):
+        is_prefix = nvp.util.get_key_sequence_type('L_SOMEKEY0')
+        is_bracket = nvp.util.get_key_sequence_type('somekey[0]')
+        is_parentheses = nvp.util.get_key_sequence_type('somekey(0)')
+        is_none = nvp.util.get_key_sequence_type('somekey')
+
+        self.assertTrue((is_prefix == nvp.util.TYPE_SEQUENCE_PREFIX))
+        self.assertTrue((is_bracket == nvp.util.TYPE_SEQUENCE_BRACKET))
+        self.assertTrue((is_parentheses == nvp.util.TYPE_SEQUENCE_PARENTHESES))
+        self.assertFalse(is_none)
+
+    def test_key_sequence_type_exception(self):
+        self.assertRaises(ValueError,
+                          nvp.util.detect_key_sequence_index,
+                          'invalid_sequence_type',
+                          'somekey')
 
 
 class TestDataSource(unittest.TestCase):
@@ -78,7 +120,7 @@ class TestDataSource(unittest.TestCase):
         """
         ret = {}
         for key, value in obj.items():
-            if hasattr(value, '__getitem__') and hasattr(value, 'setdefault'):
+            if nvp.util.is_dict(value):
                 value = self.sort_decoded_value(value)
             ret[key] = value
 

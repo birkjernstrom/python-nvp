@@ -89,6 +89,10 @@ def sequence_has_index(sequence, index):
 def get_hierarchical_pairs(source, sequence_type=TYPE_SEQUENCE_DEFAULT):
     """
     """
+    if not is_dict(source):
+        message = 'Cannot generate NVP pairs for non-dict object: %s'
+        raise ValueError(message % source)
+
     return _convert_into_list(source, sequence_type)
 
 

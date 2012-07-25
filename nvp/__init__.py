@@ -82,9 +82,6 @@ def dumps(obj, sequence_type=util.TYPE_SEQUENCE_BRACKET):
     :param sequence_type: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     """
-    if not util.is_dict(obj):
-        raise ValueError('Cannot NVP encode non-dict object: %s' % obj)
-
     pairs = util.get_hierarchical_pairs(obj, sequence_type=sequence_type)
     return urlencode(pairs)
 

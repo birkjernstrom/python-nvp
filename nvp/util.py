@@ -181,8 +181,11 @@ def get_key_sequence_type(key):
 
     :param key: The key to check
     """
-    # Sequence with key following L_KEYNAME0 standards
-    if key.startswith('L_'):
+    # Sequence with key following L_KEYNAME0 standards.
+    # Although PayPal seems to treat this case-sensitively our
+    # implementation will support case-insensitive cases of
+    # this prefix. In order to allow lowercasing of those keys.
+    if key.startswith('L_') or key.startswith('l_'):
         return TYPE_SEQUENCE_PREFIX
 
     last_character = key[-1]

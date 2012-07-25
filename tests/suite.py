@@ -23,10 +23,17 @@ import unittest
 try:
     # Utilize built-in collections.OrderedDict if Python >= 2.7
     from collections import OrderedDict as _BuiltinOrderedDict
-    OrderedDict = _BuiltinOrderedDict  # Avoid Pyflakes errors
+    OrderedDict = _BuiltinOrderedDict  # Avoid Pyflakes warnings
 except ImportError:
     from ordereddict import OrderedDict as _BackportedOrderedDict
     OrderedDict = _BackportedOrderedDict
+
+try:
+    import cStringIO as _cStringIO
+    StringIO = _cStringIO.StringIO  # Avoid Pyflakes warnings
+except ImportError:
+    import StringIO as _StringIO
+    StringIO = _StringIO.StringIO
 
 
 def get_relative_as_abspath(path):
@@ -84,7 +91,7 @@ class TestUtils(unittest.TestCase):
                           'somekey')
 
 
-class TestDataSource(unittest.TestCase):
+class TestAPI(unittest.TestCase):
     """The data source test case."""
     #: Name of keys containing encoded & decoded values in the data source
     METHOD_KEYS = ('encoded', 'decoded')
@@ -144,6 +151,12 @@ class TestDataSource(unittest.TestCase):
             return self.sort_encoded_value(value)
         return self.sort_decoded_value(value)
 
+    def get_stringio_value(self, value):
+        fp = StringIO()
+        fp.write(value)
+        fp.seek(0)
+        return fp
+
     def execute_coding(self, to_decode=True):
         """Run through data source values and verify that they are
         either encoded or decoded as expected.
@@ -165,7 +178,8 @@ class TestDataSource(unittest.TestCase):
 
         # Retrieve the function of which the individual values
         # should be filtered through in order to decode or encode.
-        execute_filter = getattr(nvp, self.METHOD_FILTERS[to_decode])
+        filter_method_name = self.METHOD_FILTERS[to_decode]
+        execute_filter = getattr(nvp, filter_method_name)
 
         for key, value in target.iteritems():
             to_match = self.ensure_sorted_value(outcome[key])
@@ -174,13 +188,24 @@ class TestDataSource(unittest.TestCase):
             is_correct_value = (filtered_value == to_match)
             self.assertTrue(is_correct_value)
 
-    def test_encoding(self):
-        """Test encoding all decoded values in the data source."""
+    def test_dumps(self):
+        """Test encoding all decoded data source values using nvp.dumps."""
         self.execute_coding(to_decode=False)
 
-    def test_decoding(self):
-        """Test decoding all the encoded values in the data source."""
+    def test_loads(self):
+        """Test decoding all encoded data source values using nvp.loads."""
         self.execute_coding(to_decode=True)
+
+    def test_load(self):
+        # TODO: Once dumps is implemented and not merely an alias
+        # to urllib.urlencode the value should be more complex here...
+        value = {
+            'foo': 'hello',
+        }
+        encoded_value = nvp.dumps(value)
+        fp = self.get_stringio_value(encoded_value)
+        loaded_value = nvp.load(fp)
+        self.assertTrue(loaded_value == value)
 
 
 if __name__ == '__main__':

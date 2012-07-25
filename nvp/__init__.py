@@ -118,5 +118,22 @@ def loads(string,
                                       strict_key_parsing=strict_key_parsing)
 
 
-def load():
-    pass
+def load(fp,
+         keep_blank_values=False,
+         strict_parsing=False,
+         strict_key_parsing=True,
+         get_hierarchical=True):
+    """Decode given NVP ``fp`` into a dictionary.
+    Where ``fp`` is a file-like object supporting the ``read`` operation.
+
+    :param fp: File-like object supporting the read operation
+    :param keep_blank_values: Whether to retain keys with undefined values
+    :param strict_parsing: Whether to use strict parsing of the query string
+    :param strict_key_parsing: Whether to raise an exception in case errors
+                               are found during parsing of given the NVP keys.
+    :param get_hierarchical: Whether to decode into a single-level or
+                             hierarchical dictionary.
+    """
+    kwargs = locals()
+    del kwargs['fp']
+    return loads(fp.read(), **kwargs)

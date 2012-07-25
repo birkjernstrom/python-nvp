@@ -73,20 +73,20 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(nvp.util.is_string(set([])))
         self.assertFalse(nvp.util.is_string(frozenset([])))
 
-    def test_get_key_sequence_type(self):
-        is_prefix = nvp.util.get_key_sequence_type('L_SOMEKEY0')
-        is_bracket = nvp.util.get_key_sequence_type('somekey[0]')
-        is_parentheses = nvp.util.get_key_sequence_type('somekey(0)')
-        is_none = nvp.util.get_key_sequence_type('somekey')
+    def test_get_sequence_type(self):
+        is_prefix = nvp.util.get_sequence_key_type('L_SOMEKEY0')
+        is_bracket = nvp.util.get_sequence_key_type('somekey[0]')
+        is_parentheses = nvp.util.get_sequence_key_type('somekey(0)')
+        is_none = nvp.util.get_sequence_key_type('somekey')
 
         self.assertTrue((is_prefix == nvp.util.TYPE_SEQUENCE_PREFIX))
         self.assertTrue((is_bracket == nvp.util.TYPE_SEQUENCE_BRACKET))
         self.assertTrue((is_parentheses == nvp.util.TYPE_SEQUENCE_PARENTHESES))
         self.assertFalse(is_none)
 
-    def test_key_sequence_type_exception(self):
+    def test_get_sequence_key_components_exception(self):
         self.assertRaises(ValueError,
-                          nvp.util.detect_key_sequence_index,
+                          nvp.util.get_sequence_key_components,
                           'invalid_sequence_type',
                           'somekey')
 

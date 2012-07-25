@@ -146,12 +146,12 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     # Check whether the initial key is a representation of a
     # sequence value, i.e list or tuple. Otherwise, there is
     # no need to continue parsing the key path.
-    sequence_type = get_key_sequence_type(initial_key)
+    sequence_type = get_sequence_key_type(initial_key)
     if not sequence_type:
         return (initial_key, key)
 
     try:
-        components = get_key_sequence_components(sequence_type, initial_key)
+        components = get_sequence_key_components(sequence_type, initial_key)
         initial_key, index = components
         key.insert(0, index)
         return (initial_key, key)
@@ -162,20 +162,20 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     return (initial_key, key)
 
 
-def get_key_sequence_type(key):
+def get_sequence_key_type(key):
     """Detect whether given ``key`` represents a sequential value
     and which method we should utilize in case we need to parse
     it in order to retrieve the sanitized key along with the
     sequential index of its value.
 
         >>> import nvp.util
-        >>> nvp.util.get_key_sequence_type('foobar')
+        >>> nvp.util.get_sequence_key_type('foobar')
         False
-        >>> nvp.util.get_key_sequence_type('foobar[0]')
+        >>> nvp.util.get_sequence_key_type('foobar[0]')
         'bracket'
-        >>> nvp.util.get_key_sequence_type('foobar(0)')
+        >>> nvp.util.get_sequence_key_type('foobar(0)')
         'parentheses'
-        >>> nvp.util.get_key_sequence_type('L_FOOBAR0')
+        >>> nvp.util.get_sequence_key_type('L_FOOBAR0')
         'prefix'
 
     :param key: The key to check
@@ -246,7 +246,7 @@ _SEQUENCE_KEY_FUNCS = {
 }
 
 
-def get_key_sequence_components(sequence_type, key):
+def get_sequence_key_components(sequence_type, key):
     """Retrieve a tuple containing the sanitized value of the sequential
     ``key`` along with the list index contained in the raw ``key``.
 
@@ -267,7 +267,7 @@ def get_key_sequence_components(sequence_type, key):
     key in the bracket format the following would be possible::
 
         >>> import nvp.util
-        >>> nvp.util.get_key_sequence_components('bracket', 'keyname[0]')
+        >>> nvp.util.get_sequence_key_components('bracket', 'keyname[0]')
         '(keyname, 0)'
 
     """

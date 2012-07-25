@@ -95,12 +95,11 @@ def get_hierarchical_dict(source, strict_key_parsing=True):
     """
     ret = {}
     sorted_keys = sorted(source.keys())
+    convert = _convert_into_hierarchical_dict
 
     for key in sorted_keys:
         value = source[key]
-        ret = _convert_into_hierarchical_dict(ret, key, value,
-                        strict_key_parsing=strict_key_parsing)
-
+        ret = convert(ret, key, value, strict_key_parsing=strict_key_parsing)
     return ret
 
 

@@ -33,12 +33,14 @@ previous query string could be re-written using this convention to::
 
 The last method of indicating sequences is using the L_ key prefix.
 Along with appending the index directly after the last key character.
-The previous query string could be re-written using this convention to::
+In contrast with the bracket and parentheses convention the prefix type
+cannot encode a dictionary which contains nested dictionaries or lists.
 
-    ?L_foo0.a=1&L_foo0.b=2&L_foo1='helloworld'&foobar=1337
+However, two-level dictionaries are allowed and will be encoded to::
 
+    ?L_KEY0=3&L_KEY1=4&a=1&b=2
 
-The format was introduced by PayPal and is heavily utilized in
+The NVP format was introduced by PayPal and is heavily utilized in
 their API suites. More information about the format is thus best found
 in their documentation at::
 
@@ -73,12 +75,29 @@ from nvp import util
 # ENCODING & DECODING API
 ###############################################################################
 
-def dumps(obj):
-    return urlencode(obj, True)
+def dumps(obj, sequence_type=util.TYPE_SEQUENCE_BRACKET):
+    """Encode given ``obj`` into an NVP query string.
+
+    :param obj: The dictionary to encode
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    """
+    if not util.is_dict(obj):
+        raise ValueError('Cannot NVP encode non-dict object: %s' % obj)
+
+    pairs = util.get_hierarchical_pairs(obj, sequence_type=sequence_type)
+    return urlencode(pairs)
 
 
-def dump():
-    pass
+def dump(fp, sequence_type=util.TYPE_SEQUENCE_BRACKET):
+    """Encode given ``fp`` into an NVP query string.
+    Where ``fp`` is a file-like object supporting the ``write` operation.`
+
+    :param obj: The dictionary to encode
+    :param sequence_type: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    """
+    return dumps(fp.read(), sequence_type=sequence_type)
 
 
 def loads(string,

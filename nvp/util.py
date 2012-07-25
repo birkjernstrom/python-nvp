@@ -17,6 +17,8 @@ TYPE_SEQUENCE_PREFIX = 'prefix'
 TYPE_SEQUENCE_BRACKET = 'bracket'
 #: Type identifier corresponding to keys of type somekey(0)
 TYPE_SEQUENCE_PARENTHESES = 'parentheses'
+#: The default type identifier to utilize if none other is specified
+TYPE_SEQUENCE_DEFAULT = TYPE_SEQUENCE_BRACKET
 
 
 #: The string which indicates a key path correlating to the
@@ -81,8 +83,14 @@ def sequence_has_index(sequence, index):
 
 
 ###############################################################################
-# CONVERSION FUNCTIONS
+# ENCODING & DECODING FUNCTIONS
 ###############################################################################
+
+def get_hierarchical_pairs(source, sequence_type=TYPE_SEQUENCE_DEFAULT):
+    """
+    """
+    return _convert_into_list(source, sequence_type)
+
 
 def get_hierarchical_dict(source, strict_key_parsing=True):
     """Retrieve a hierarchical dictionary corresponding to the
@@ -279,6 +287,20 @@ def get_sequence_key_components(sequence_type, key):
     raise ValueError(message % _SEQUENCE_KEY_FUNCS.keys())
 
 
+def generate_sequence_key(key, index, sequence_type=TYPE_SEQUENCE_DEFAULT):
+    if sequence_type == TYPE_SEQUENCE_BRACKET:
+        return '%s[%d]' % (key, index)
+
+    if sequence_type == TYPE_SEQUENCE_PARENTHESES:
+        return '%s(%d)' % (key, index)
+
+    if sequence_type == TYPE_SEQUENCE_PREFIX:
+        return 'L_%s%d' % (key, index)
+
+    message = 'Given sequence_type is not one of the accepted values: %s'
+    raise ValueError(message % _SEQUENCE_KEY_FUNCS.keys())
+
+
 ###############################################################################
 # INTERNAL FUNCTIONS
 ###############################################################################
@@ -306,6 +328,73 @@ def _get_key_group_sequence_components(key, open_identifier, close_identifier):
         message = 'Cannot retrieve numerical index in key: %s'
         raise ValueError(message % key)
     return (key[:open_index], index)
+
+
+def _convert_into_list(source,
+                       sequence_type,
+                       destination=None,
+                       keys=None,
+                       depth=0):
+    """
+    """
+    # Bail in case sequence type 'prefix' is requested and given
+    # source directory contains nested dictionaries or lists.
+    if depth > 1 and sequence_type == TYPE_SEQUENCE_PREFIX:
+        message = 'Maximum encoding depth reached for type: prefix'
+        raise ValueError(message)
+
+    source_is_dict = is_dict(source)
+    source_is_sequential = is_non_string_sequence(source)
+
+    # In case source is neither a dictionary nor a list
+    # we have reached the end of the recursion required to
+    # generate the current pair and we can return the entire
+    # key along with the value - source in this case.
+    if not (source_is_dict or source_is_sequential):
+        # Assign current pair
+        path_k = str(KEY_HIERARCHY_SEPARATOR).join(keys)
+        destination.append((path_k, source))
+        return destination
+
+    # Ensure both keys and destinations are initialized
+    keys = keys if keys else []
+    destination = destination if destination else []
+
+    # Recursively convert all items in the current dictionary
+    if source_is_dict:
+        for k, v in source.iteritems():
+            keys.append(k)
+            destination = _convert_into_list(v, keys=keys, depth=(depth + 1),
+                                             sequence_type=sequence_type,
+                                             destination=destination)
+
+        return destination
+
+    # Now when source is a non-string sequence we have to retrieve
+    # the previous item in the keys list in order to generate a valid
+    # key, since the current key will be an integer - the index of the
+    # value to store for the final key path. Since this function is recursive
+    # we do not need to iterate through all the keys to find the nearest
+    # string to utilize as the parent key. Because the previous recursion
+    # will have concatinated both its previous key along with the index
+    # of the containing sequence in which this key is located.
+    pk = keys.pop()
+    if not pk:
+        message = 'Cannot generate sequence key without parent key: %s'
+        raise ValueError(message % source)
+
+    index = 0
+    for value in source:
+        inner_keys = keys[:]
+        k = generate_sequence_key(pk, index, sequence_type=sequence_type)
+        inner_keys.append(k)
+        index += 1
+
+        destination = _convert_into_list(value, sequence_type,
+                                         destination=destination,
+                                         keys=inner_keys, depth=(depth + 1))
+
+    return destination
 
 
 def _convert_into_hierarchical_dict(destination,

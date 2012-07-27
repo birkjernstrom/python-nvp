@@ -160,11 +160,9 @@ def convert_prefix_into_bracket_key(key):
     for component in components:
         try:
             index = int(component)
-            k = gen_component(converted[-1], index)
+            converted[-1] = gen_component(converted[-1], index)
         except ValueError:
-            k = component
-
-        converted.append(k)
+            converted.append(component)
 
     # In case the value is sequential the prefix convention requires
     # the index to be appended to the last key component string. Strange

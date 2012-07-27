@@ -31,14 +31,20 @@ previous query string could be re-written using this convention to::
 
     ?foo(0).a=1&foo(0).b=2&foo(1)='helloworld'&foobar=1337
 
-The last method of indicating sequences is using the L_ key prefix.
-Along with appending the index directly after the last key character.
-In contrast with the bracket and parentheses convention the prefix type
-cannot encode a dictionary which contains nested dictionaries or lists.
+The last method is using underscores to represent the hierarchy along with
+prefixing the key with L_ in case the value belongs in a sequential data
+structure. In such case the final key component will have the index
+appended to itself; L_BAR1 indicates the second value in the BAR list.
 
-However, two-level dictionaries are allowed and will be encoded to::
+Sequential data structures in the hierarchy which are not the direct value
+do, however, not have their corresponding indexes represented by appending
+them to their key component. Instead they are separated by underscore too.
 
-    ?L_KEY0=3&L_KEY1=4&a=1&b=2
+Thus the previous query string in the prefix convention is::
+
+    ?FOO_0_A=1&FOO_0_B=2&L_FOO1='helloworld'&FOOBAR=1337
+
+The prefix convention - as shown above - have uppercased keys in general.
 
 The NVP format was introduced by PayPal and is heavily utilized in
 their API suites. More information about the format is thus best found

@@ -77,6 +77,13 @@ from urlparse import parse_qs
 from nvp import util
 
 
+# Convention aliases
+CONVENTIONS = util.CONVENTIONS
+CONVENTION_PREFIX = util.CONVENTION_PREFIX
+CONVENTION_BRACKET = util.CONVENTION_BRACKET
+CONVENTION_PARENTHESES = util.CONVENTION_PARENTHESES
+
+
 ###############################################################################
 # ENCODING & DECODING API
 ###############################################################################

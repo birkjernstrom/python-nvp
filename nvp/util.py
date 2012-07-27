@@ -20,6 +20,13 @@ CONVENTION_PARENTHESES = 'parentheses'
 #: The default type identifier to utilize if none other is specified
 DEFAULT_CONVENTION = CONVENTION_BRACKET
 
+#: List of all available NVP conventions
+CONVENTIONS = [
+    CONVENTION_PREFIX,
+    CONVENTION_BRACKET,
+    CONVENTION_PARENTHESES,
+]
+
 #: The string which identifies additional hierarchical depth
 #: in key paths of type *bracket* and *parentheses*. In other words
 #: the key path ``foo.bar`` should correspond to a dictionary
@@ -303,7 +310,7 @@ def parse_key_with_index(key, convention=DEFAULT_CONVENTION):
         return func(key)
 
     message = 'Given convention is not one of the accepted values: %s'
-    raise ValueError(message % _KEY_PARSERS.keys())
+    raise ValueError(message % CONVENTIONS)
 
 
 def generate_key(components, convention=DEFAULT_CONVENTION):
@@ -356,7 +363,7 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
         return '%s%s%d' % (key, KEY_PREFIX_HIERARCHY_SEPARATOR, index)
 
     message = 'Given convention is not one of the accepted values: %s'
-    raise ValueError(message % _KEY_PARSERS.keys())
+    raise ValueError(message % CONVENTIONS)
 
 
 ###############################################################################

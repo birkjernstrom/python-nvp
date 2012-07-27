@@ -16,7 +16,6 @@ more specific test methods can reside here too.
 
 import sys
 import json
-import logging
 import os.path
 import unittest
 
@@ -47,7 +46,6 @@ def get_relative_as_abspath(path):
 # imported rather than one located in site-packages for instance.
 sys.path.insert(0, get_relative_as_abspath('../'))
 import nvp
-import nvp.util
 
 
 class TestUtils(unittest.TestCase):
@@ -301,12 +299,6 @@ class TestAPI(unittest.TestCase):
             return self.sort_encoded_value(value)
         return self.sort_decoded_value(value)
 
-    def get_stringio_value(self, value):
-        fp = StringIO()
-        fp.write(value)
-        fp.seek(0)
-        return fp
-
     def execute_coding(self, to_decode=True):
         """Run through data source values and verify that they are
         either encoded or decoded as expected.
@@ -340,22 +332,69 @@ class TestAPI(unittest.TestCase):
 
     def test_dumps(self):
         """Test encoding all decoded data source values using nvp.dumps."""
-        self.execute_coding(to_decode=False)
+        decoded = self.data_source['decoded']
+        encoded = self.data_source['encoded']
+
+        for name, obj in decoded.iteritems():
+            encoded_obj = encoded[name]
+            for convention in nvp.CONVENTIONS:
+                to_match = encoded_obj[convention]
+                value = nvp.dumps(obj, convention=convention)
+                self.assertEqual(value, to_match)
 
     def test_loads(self):
         """Test decoding all encoded data source values using nvp.loads."""
-        self.execute_coding(to_decode=True)
+        decoded = self.data_source['decoded']
+        encoded = self.data_source['encoded']
+
+        for name, encoded_obj in encoded.iteritems():
+            to_match = decoded[name]
+            for convention in nvp.CONVENTIONS:
+                query_string = encoded_obj[convention]
+                value = nvp.loads(query_string)
+                self.assertEqual(value, to_match)
+
+    def test_dump(self):
+        value = {
+            'foo': [
+                {
+                    'hello': 'again',
+                    'one': 'two',
+                    'alist': [1, 2, 3, 4],
+                },
+            ],
+            'simple': 'Hello world',
+        }
+
+        encoded_value = nvp.dumps(value)
+
+        fp = StringIO()
+        nvp.dump(value, fp)
+        fp.seek(0)
+        written_encoded_value = fp.read()
+        fp.close()
+
+        self.assertEqual(written_encoded_value, encoded_value)
 
     def test_load(self):
         # TODO: Once dumps is implemented and not merely an alias
         # to urllib.urlencode the value should be more complex here...
         value = {
             'foo': 'hello',
+            'list': [
+                'hello',
+                'world',
+            ],
         }
         encoded_value = nvp.dumps(value)
-        fp = self.get_stringio_value(encoded_value)
+
+        fp = StringIO()
+        fp.write(encoded_value)
+        fp.seek(0)
         loaded_value = nvp.load(fp)
-        self.assertTrue(loaded_value == value)
+        fp.close()
+
+        self.assertEqual(loaded_value, value)
 
 
 if __name__ == '__main__':

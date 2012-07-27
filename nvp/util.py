@@ -552,7 +552,7 @@ def _convert_into_hierarchical_dict(destination,
         # lists in all scenarios which defeats the point. Therefore, we
         # retrieve the value of item instead in cases where a
         # single-item list is given.
-        if len(value) == 1:
+        if is_non_string_sequence(value) and len(value) == 1:
             value = value[0]
         return value
 

@@ -270,7 +270,7 @@ _KEY_PARSERS = {
 }
 
 
-def parse_key_with_index(convention, key):
+def parse_key_with_index(key, convention=DEFAULT_CONVENTION):
     """Retrieve a tuple containing the sanitized value of the sequential
     ``key`` along with the list index contained in the raw ``key``.
 
@@ -291,12 +291,12 @@ def parse_key_with_index(convention, key):
     key in the bracket format the following would be possible::
 
         >>> import nvp.util
-        >>> nvp.util.parse_key_with_index('bracket', 'keyname[0]')
+        >>> nvp.util.parse_key_with_index('keyname[0]', 'bracket')
         '(keyname, 0)'
 
+    :param key: The key to retrieve sequence_components from
     :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
-    :param key: The key to retrieve sequence_components from
     """
     func = _KEY_PARSERS.get(convention, None)
     if func is not None:

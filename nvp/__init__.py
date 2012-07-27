@@ -75,26 +75,26 @@ from nvp import util
 # ENCODING & DECODING API
 ###############################################################################
 
-def dumps(obj, sequence_type=util.TYPE_SEQUENCE_BRACKET):
+def dumps(obj, convention=util.DEFAULT_CONVENTION):
     """Encode given ``obj`` into an NVP query string.
 
     :param obj: The dictionary to encode
-    :param sequence_type: The convention to utilize in encoding keys
+    :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     """
-    pairs = util.get_hierarchical_pairs(obj, sequence_type=sequence_type)
+    pairs = util.get_hierarchical_pairs(obj, convention=convention)
     return urlencode(pairs)
 
 
-def dump(fp, sequence_type=util.TYPE_SEQUENCE_BRACKET):
+def dump(fp, convention=util.DEFAULT_CONVENTION):
     """Encode given ``fp`` into an NVP query string.
     Where ``fp`` is a file-like object supporting the ``write` operation.`
 
     :param obj: The dictionary to encode
-    :param sequence_type: The convention to utilize in encoding keys
+    :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     """
-    return dumps(fp.read(), sequence_type=sequence_type)
+    return dumps(fp.read(), convention=convention)
 
 
 def loads(string,

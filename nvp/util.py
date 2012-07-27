@@ -12,21 +12,31 @@ import traceback
 
 
 #: Type identifier corresponding to keys of type L_SOMEKEY0
-TYPE_SEQUENCE_PREFIX = 'prefix'
+CONVENTION_PREFIX = 'prefix'
 #: Type identifier corresponding to keys of type somekey[0]
-TYPE_SEQUENCE_BRACKET = 'bracket'
+CONVENTION_BRACKET = 'bracket'
 #: Type identifier corresponding to keys of type somekey(0)
-TYPE_SEQUENCE_PARENTHESES = 'parentheses'
+CONVENTION_PARENTHESES = 'parentheses'
 #: The default type identifier to utilize if none other is specified
-TYPE_SEQUENCE_DEFAULT = TYPE_SEQUENCE_BRACKET
+DEFAULT_CONVENTION = CONVENTION_BRACKET
 
-
-#: The string which indicates a key path correlating to the
-#: hierarchical relationship in which the associated value
-#: is stored in the decoded dictionary. In other words the
-#: encoded key path ``foo.bar`` corresponds to the value
-#: stored in the decoded dictionary at ``dict['foo']['bar']``
+#: The string which identifies additional hierarchical depth
+#: in key paths of type *bracket* and *parentheses*. In other words
+#: the key path ``foo.bar`` should correspond to a dictionary
+#: with the following structure: ``dict['foo']['bar']``
 KEY_HIERARCHY_SEPARATOR = '.'
+
+#: The string which identifies additional hierarchical depth
+#: in key paths of type *prefix*. In other words the key path
+#: ``FOO_BAR`` should correspond to a dictionary with the
+#: following structure: ``dict['foo']['bar']``
+KEY_PREFIX_HIERARCHY_SEPARATOR = '_'
+
+#: The string to prepend to keys of type ``prefix`` in case their
+#: value is sequential, i.e list or tuple.
+PREFIX_KEY_VALUE = 'L_'
+
+_PREFIX_KEY_VALUE_LEN = len(PREFIX_KEY_VALUE)
 
 
 ###############################################################################
@@ -86,7 +96,7 @@ def sequence_has_index(sequence, index):
 # ENCODING & DECODING FUNCTIONS
 ###############################################################################
 
-def get_hierarchical_pairs(source, sequence_type=TYPE_SEQUENCE_DEFAULT):
+def get_hierarchical_pairs(source, convention=DEFAULT_CONVENTION):
     """Retrieve a list of tuples where the first item is the hierarchical
     key and the second its corresponding value.
 
@@ -94,14 +104,14 @@ def get_hierarchical_pairs(source, sequence_type=TYPE_SEQUENCE_DEFAULT):
     to generate an NVP query string.
 
     :param source: The dictionary to convert into NVP pairs
-    :param sequence_type: The convention to utilize in encoding keys
-                          corresponding to non-string sequences, e.g lists.
+    :param convention: The convention to utilize in encoding keys
+                       corresponding to non-string sequences, e.g lists.
     """
     if not is_dict(source):
         message = 'Cannot generate NVP pairs for non-dict object: %s'
         raise ValueError(message % source)
 
-    return _convert_into_list(source, sequence_type)
+    return _convert_into_list(source, convention)
 
 
 def get_hierarchical_dict(source, strict_key_parsing=True):
@@ -127,6 +137,50 @@ def get_hierarchical_dict(source, strict_key_parsing=True):
 # KEY PATH FUNCTIONS
 ###############################################################################
 
+def convert_prefix_into_bracket_key(key):
+    """Convert given ``key`` of type ``prefix`` into the same
+    hierarchical key in the ``bracket`` format.
+
+        >>> import nvp.util
+        >>> nvp.util.convert_prefix_into_bracket_key('L_FOO_0_BAR1')
+        'FOO[0].BAR[1]'
+
+    :param key: The key to convert
+    """
+    if key.find(KEY_PREFIX_HIERARCHY_SEPARATOR) == -1:
+        return key
+
+    if key.startswith(PREFIX_KEY_VALUE):
+        key = key[_PREFIX_KEY_VALUE_LEN:]
+
+    def gen_component(prefix, index):
+        return generate_key_component(prefix, index,
+                                      convention=CONVENTION_BRACKET)
+
+    converted = []
+    components = key.split(KEY_PREFIX_HIERARCHY_SEPARATOR)
+    for component in components:
+        try:
+            index = int(component)
+            k = gen_component(converted[-1], index)
+        except ValueError:
+            k = component
+
+        converted.append(k)
+
+    # In case the value is sequential the prefix convention requires
+    # the index to be appended to the last key component string. Strange
+    # convention since all other sequential indexes are separated with
+    # underscores to the neighbour keys.
+    try:
+        k, index = parse_prefix_key_with_index(converted[-1])
+        converted[-1] = gen_component(k, index)
+    except ValueError:
+        pass
+
+    return KEY_HIERARCHY_SEPARATOR.join(converted)
+
+
 def parse_hierarchical_key_path(key, strict_key_parsing=True):
     """Parse and retrieve a tuple reflecting the hierarchy
     defined in the given raw ``key``.
@@ -144,6 +198,8 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
         ('foo', ['bar', 'a', 'b'])
         >>> nvp.util.parse_hierarchical_key_path('foo.bar[0].a')
         ('foo', ['bar', 0, 'a'])
+        >>> nvp.util.parse_hierarchical_key_path('FOO_BAR_0_A')
+        ('FOO', ['BAR', 0, 'A'])
 
     :param key: The raw key to retrieve hierarchy from
     :param strict_key_parsing: Whether to raise an exception in case
@@ -153,6 +209,10 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     # Ensure we are dealing with a list of key components
     # rather than the string representation of the entire key path.
     if is_string(key):
+        # Convert keys of type prefix into the bracket convention
+        # prior to parsing them in order to avoid having to implement
+        # separate logic for the type since it is quite a weird convention.
+        key = convert_prefix_into_bracket_key(key)
         key = key.split(KEY_HIERARCHY_SEPARATOR)
 
     # In case the initial key item in the list of components is not
@@ -166,13 +226,12 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     # Check whether the initial key is a representation of a
     # sequence value, i.e list or tuple. Otherwise, there is
     # no need to continue parsing the key path.
-    sequence_type = get_sequence_key_type(initial_key)
-    if not sequence_type:
+    convention = detect_key_convention(initial_key)
+    if not convention:
         return (initial_key, key)
 
     try:
-        components = get_sequence_key_components(sequence_type, initial_key)
-        initial_key, index = components
+        initial_key, index = parse_key_with_index(convention, initial_key)
         key.insert(0, index)
         return (initial_key, key)
     except ValueError:
@@ -182,58 +241,67 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     return (initial_key, key)
 
 
-def get_sequence_key_type(key):
+def detect_key_convention(key):
     """Detect whether given ``key`` represents a sequential value
     and which method we should utilize in case we need to parse
     it in order to retrieve the sanitized key along with the
     sequential index of its value.
 
         >>> import nvp.util
-        >>> nvp.util.get_sequence_key_type('foobar')
-        False
-        >>> nvp.util.get_sequence_key_type('foobar[0]')
+        >>> nvp.util.detect_key_convention('foobar[0]')
         'bracket'
-        >>> nvp.util.get_sequence_key_type('foobar(0)')
+        >>> nvp.util.detect_key_convention('foobar(0)')
         'parentheses'
-        >>> nvp.util.get_sequence_key_type('L_FOOBAR0')
+        >>> nvp.util.detect_key_convention('L_FOOBAR0')
         'prefix'
+        >>> nvp.util.detect_key_convention('foobar')
+        False
 
     :param key: The key to check
     """
     # Sequence with key following L_KEYNAME0 standards.
-    # Although PayPal seems to treat this case-sensitively our
-    # implementation will support case-insensitive cases of
-    # this prefix. In order to allow lowercasing of those keys.
-    if key.startswith('L_') or key.startswith('l_'):
-        return TYPE_SEQUENCE_PREFIX
+    if key.startswith(PREFIX_KEY_VALUE):
+        return CONVENTION_PREFIX
 
     last_character = key[-1]
 
     # Sequence with key following KEYNAME[0] standards
     if last_character == ']':
-        return TYPE_SEQUENCE_BRACKET
+        return CONVENTION_BRACKET
     # Sequence with key following KEYNAME(0) standards
     elif last_character == ')':
-        return TYPE_SEQUENCE_PARENTHESES
+        return CONVENTION_PARENTHESES
     return False
 
 
-def get_key_prefix_sequence_components(key):
-    """Retrieve sequence components in given ``key``
-    which uses L_ prefixes to identify sequence indexes.
+def parse_prefix_key_with_index(key):
+    """Retrieve sequence index in given ``key`` along with the
+    filtered key itself where ``key`` conforms to the prefix convention.
 
         >>> import nvp.util
-        >>> nvp.util.get_key_parentheses_sequence_components('L_FOOBAR0')
+        >>> nvp.util.get_key_parentheses_sequence_components('FOOBAR0')
         ('FOOBAR', 0)
 
     :param key: The key to retrieve sequence components from
     """
-    pass
+    index_at = 0
+    while True:
+        try:
+            int(key[(index_at - 1)])
+            index_at -= 1
+        except ValueError:
+            break
+
+    if index_at:
+        return (key[:index_at], int(key[index_at:]))
+
+    message = 'Given key has no index appended to it: %s'
+    raise ValueError(message % key)
 
 
-def get_key_bracket_sequence_components(key):
-    """Retrieve sequence components in given ``key``
-    which uses parentheses to identify sequence indexes.
+def parse_bracket_key_with_index(key):
+    """Retrieve sequence index in given ``key`` along with the
+    filtered key itself where ``key`` conforms to the bracket convention.
 
         >>> import nvp.util
         >>> nvp.util.get_key_bracket_sequence_components('foobar[0]')
@@ -241,12 +309,12 @@ def get_key_bracket_sequence_components(key):
 
     :param key: The key to retrieve sequence components from
     """
-    return _get_key_group_sequence_components(key, '[', ']')
+    return _parse_group_key_with_index(key, '[', ']')
 
 
-def get_key_parentheses_sequence_components(key):
-    """Retrieve sequence components in given ``key``
-    which uses brackets to identify sequence indexes.
+def parse_parentheses_key_with_index(key):
+    """Retrieve sequence index in given ``key`` along with the
+    filtered key itself where ``key`` conforms to the parentheses convention.
 
         >>> import nvp.util
         >>> nvp.util.get_key_parentheses_sequence_components('foobar(0)')
@@ -254,28 +322,28 @@ def get_key_parentheses_sequence_components(key):
 
     :param key: The key to retrieve sequence components from
     """
-    return _get_key_group_sequence_components(key, '(', ')')
+    return _parse_group_key_with_index(key, '(', ')')
 
 
-#: Mapping of sequence types and their corresponding functions
-#: for retrieving sequence components related to the given key.
-_SEQUENCE_KEY_FUNCS = {
-    TYPE_SEQUENCE_PREFIX: get_key_prefix_sequence_components,
-    TYPE_SEQUENCE_BRACKET: get_key_bracket_sequence_components,
-    TYPE_SEQUENCE_PARENTHESES: get_key_parentheses_sequence_components,
+#: Mapping of conventions and their corresponding functions to
+#: parse given key for key and index components
+_KEY_PARSERS = {
+    CONVENTION_PREFIX: parse_prefix_key_with_index,
+    CONVENTION_BRACKET: parse_bracket_key_with_index,
+    CONVENTION_PARENTHESES: parse_parentheses_key_with_index,
 }
 
 
-def get_sequence_key_components(sequence_type, key):
+def parse_key_with_index(convention, key):
     """Retrieve a tuple containing the sanitized value of the sequential
     ``key`` along with the list index contained in the raw ``key``.
 
     The method in which the index and sanitized key is detected is
-    determined by given ``sequence_type``. The supported types are::
+    determined by given ``convention``. The supported types are::
 
         prefix
-            L_KEYNAME0 -> (keyname, 0)
-            L_KEYNAME1 -> (keyname, 1)
+            KEYNAME0 -> (keyname, 0)
+            KEYNAME1 -> (keyname, 1)
         bracket
             KEYNAME[0] -> (keyname, 0)
             KEYNAME[1] -> (keyname, 1)
@@ -287,48 +355,79 @@ def get_sequence_key_components(sequence_type, key):
     key in the bracket format the following would be possible::
 
         >>> import nvp.util
-        >>> nvp.util.get_sequence_key_components('bracket', 'keyname[0]')
+        >>> nvp.util.parse_key_with_index('bracket', 'keyname[0]')
         '(keyname, 0)'
 
-    :param sequence_type: The convention to utilize in encoding keys
+    :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     :param key: The key to retrieve sequence_components from
     """
-    func = _SEQUENCE_KEY_FUNCS.get(sequence_type, None)
+    func = _KEY_PARSERS.get(convention, None)
     if func is not None:
         return func(key)
 
-    message = 'Given sequence_type is not one of the accepted values: %s'
-    raise ValueError(message % _SEQUENCE_KEY_FUNCS.keys())
+    message = 'Given convention is not one of the accepted values: %s'
+    raise ValueError(message % _KEY_PARSERS.keys())
 
 
-def generate_sequence_key(key, index, sequence_type=TYPE_SEQUENCE_DEFAULT):
-    """Generate sequence key according to NVP convention of type
-    specified in ``sequence_type``.
+def generate_key(components, convention=DEFAULT_CONVENTION):
+    """Generate a valid NVP key which conforms to the given ``convention``.
+
+    :param components: The key components to include in the generated key path
+    :param convention: The convention to utilize in encoding keys
+                          corresponding to non-string sequences, e.g lists.
+    """
+    if (convention == CONVENTION_BRACKET or
+        convention == CONVENTION_PARENTHESES):
+        return str(KEY_HIERARCHY_SEPARATOR).join(components)
+
+    is_value_sequential = False
+    try:
+        last_component = components[-1]
+        key, index = last_component.split('_')
+        components[-1] = '%s%s' % (key, index)
+        is_value_sequential = True
+    except ValueError:
+        pass
+
+    key_path = KEY_PREFIX_HIERARCHY_SEPARATOR.join(components)
+    if is_value_sequential:
+        key_path = '%s%s' % (PREFIX_KEY_VALUE, key_path)
+    return key_path
+
+
+def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
+    """Generate sequence key component according to NVP convention of type
+    specified in ``convention``.
+
+    A key component is a slice of the entire key representing one level
+    in the intended hierarchy. In other words the NVP key foo.bar[0]
+    has two components; foo & bar[0] in which the latter in considered
+    to be a sequence key since it contains a sequential value.
 
     :param key: The pure key without sequential index referencing
     :param index: The sequence index to encode in the sequence key
-    :param sequence_type: The convention to utilize in encoding keys
+    :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     """
-    if sequence_type == TYPE_SEQUENCE_BRACKET:
+    if convention == CONVENTION_BRACKET:
         return '%s[%d]' % (key, index)
 
-    if sequence_type == TYPE_SEQUENCE_PARENTHESES:
+    if convention == CONVENTION_PARENTHESES:
         return '%s(%d)' % (key, index)
 
-    if sequence_type == TYPE_SEQUENCE_PREFIX:
-        return 'L_%s%d' % (key, index)
+    if convention == CONVENTION_PREFIX:
+        return '%s%s%d' % (key, KEY_PREFIX_HIERARCHY_SEPARATOR, index)
 
-    message = 'Given sequence_type is not one of the accepted values: %s'
-    raise ValueError(message % _SEQUENCE_KEY_FUNCS.keys())
+    message = 'Given convention is not one of the accepted values: %s'
+    raise ValueError(message % _KEY_PARSERS.keys())
 
 
 ###############################################################################
 # INTERNAL FUNCTIONS
 ###############################################################################
 
-def _get_key_group_sequence_components(key, open_identifier, close_identifier):
+def _parse_group_key_with_index(key, open_identifier, close_identifier):
     """Retrieve a tuple containing the sanitized value of the sequential
     ``key`` along with the list index contained in the raw ``key``.
 
@@ -354,10 +453,9 @@ def _get_key_group_sequence_components(key, open_identifier, close_identifier):
 
 
 def _convert_into_list(source,
-                       sequence_type,
+                       convention,
                        destination=None,
-                       keys=None,
-                       depth=0):
+                       keys=None):
     """Recursively convert given ``source`` dictionary into NVP
     pairs which are stored as tuples in the ``destination`` list.
 
@@ -365,19 +463,13 @@ def _convert_into_list(source,
     to generate an NVP query string.
 
     :param source: The dictionary to convert into NVP pairs
-    :param sequence_type: The convention to utilize in encoding keys
+    :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     :param destination: The list in which pairs should be appended
     :param keys: List of key components in current NVP pair to generate
                  hierarchical key path from
     :param depth: The current depth of the recursion
     """
-    # Bail in case sequence type 'prefix' is requested and given
-    # source directory contains nested dictionaries or lists.
-    if depth > 1 and sequence_type == TYPE_SEQUENCE_PREFIX:
-        message = 'Maximum encoding depth reached for type: prefix'
-        raise ValueError(message)
-
     source_is_dict = is_dict(source)
     source_is_sequential = is_non_string_sequence(source)
 
@@ -387,7 +479,7 @@ def _convert_into_list(source,
     # key along with the value - source in this case.
     if not (source_is_dict or source_is_sequential):
         # Assign current pair
-        path_k = str(KEY_HIERARCHY_SEPARATOR).join(keys)
+        path_k = generate_key(keys, convention=convention)
         destination.append((path_k, source))
         return destination
 
@@ -398,9 +490,10 @@ def _convert_into_list(source,
     # Recursively convert all items in the current dictionary
     if source_is_dict:
         for k, v in source.iteritems():
-            keys.append(k)
-            destination = _convert_into_list(v, keys=keys, depth=(depth + 1),
-                                             sequence_type=sequence_type,
+            inner_keys = keys[:]
+            inner_keys.append(k)
+            destination = _convert_into_list(v, keys=inner_keys,
+                                             convention=convention,
                                              destination=destination)
 
         return destination
@@ -421,13 +514,14 @@ def _convert_into_list(source,
     index = 0
     for value in source:
         inner_keys = keys[:]
-        k = generate_sequence_key(pk, index, sequence_type=sequence_type)
+        k = generate_key_component(pk, index, convention=convention)
+
         inner_keys.append(k)
         index += 1
 
-        destination = _convert_into_list(value, sequence_type,
+        destination = _convert_into_list(value, convention,
                                          destination=destination,
-                                         keys=inner_keys, depth=(depth + 1))
+                                         keys=inner_keys)
 
     return destination
 

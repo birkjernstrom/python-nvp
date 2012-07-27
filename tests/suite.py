@@ -62,6 +62,17 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(nvp.util.is_string(set([])))
         self.assertFalse(nvp.util.is_string(frozenset([])))
 
+    def is_int(self):
+        self.assertTrue(nvp.util.is_int(1))
+
+        self.assertFalse(nvp.util.is_int('Foobar'))
+        self.assertFalse(nvp.util.is_int(dict(a=1)))
+        self.assertFalse(nvp.util.is_int(1.33))
+        self.assertFalse(nvp.util.is_int([3]))
+        self.assertFalse(nvp.util.is_int((1,)))
+        self.assertFalse(nvp.util.is_int(set([])))
+        self.assertFalse(nvp.util.is_int(frozenset([])))
+
     def test_is_dict(self):
         self.assertTrue(nvp.util.is_dict(dict(a=1)))
 
@@ -70,25 +81,164 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(nvp.util.is_dict(1.33))
         self.assertFalse(nvp.util.is_dict([3]))
         self.assertFalse(nvp.util.is_dict((1,)))
-        self.assertFalse(nvp.util.is_string(set([])))
-        self.assertFalse(nvp.util.is_string(frozenset([])))
+        self.assertFalse(nvp.util.is_dict(set([])))
+        self.assertFalse(nvp.util.is_dict(frozenset([])))
 
-    def test_get_sequence_type(self):
-        is_prefix = nvp.util.get_sequence_key_type('L_SOMEKEY0')
-        is_bracket = nvp.util.get_sequence_key_type('somekey[0]')
-        is_parentheses = nvp.util.get_sequence_key_type('somekey(0)')
-        is_none = nvp.util.get_sequence_key_type('somekey')
+    def test_is_non_string_sequence(self):
+        self.assertTrue(nvp.util.is_non_string_sequence([3]))
+        self.assertTrue(nvp.util.is_non_string_sequence((1,)))
+        self.assertTrue(nvp.util.is_non_string_sequence(set([])))
+        self.assertTrue(nvp.util.is_non_string_sequence(frozenset([])))
 
-        self.assertTrue((is_prefix == nvp.util.TYPE_SEQUENCE_PREFIX))
-        self.assertTrue((is_bracket == nvp.util.TYPE_SEQUENCE_BRACKET))
-        self.assertTrue((is_parentheses == nvp.util.TYPE_SEQUENCE_PARENTHESES))
+        self.assertFalse(nvp.util.is_non_string_sequence('Foobar'))
+        self.assertFalse(nvp.util.is_non_string_sequence(1))
+        self.assertFalse(nvp.util.is_non_string_sequence(1.33))
+        self.assertFalse(nvp.util.is_non_string_sequence(dict(a=1)))
+
+    def test_sequence_has_index(self):
+        a_list = range(10)
+        self.assertTrue(nvp.util.sequence_has_index(a_list, 1))
+        self.assertFalse(nvp.util.sequence_has_index(a_list, 20))
+
+    def test_get_hierarchical_pairs(self):
+        # Ensure exception is raised in case of inaccurate params
+        self.assertRaises(ValueError,
+                          nvp.util.get_hierarchical_pairs,
+                          [])
+
+        # Check dict->hierarcical pair convertion
+        pairs = nvp.util.get_hierarchical_pairs({
+            'a': {
+                'b': [1, 2],
+                'c': (3, 4),
+                'd': [
+                    (5, 6, 7),
+                ],
+            },
+            'astring': 'Hello'
+        }, convention=nvp.util.CONVENTION_BRACKET)
+        self.assertEqual(sorted(pairs), sorted([
+            ('a.b[0]', 1),
+            ('a.b[1]', 2),
+            ('a.c[0]', 3),
+            ('a.c[1]', 4),
+            ('a.d[0][0]', 5),
+            ('a.d[0][1]', 6),
+            ('a.d[0][2]', 7),
+            ('astring', 'Hello'),
+        ]))
+
+    def test_get_hierarchical_dict(self):
+        source = {
+            'a.b[0]': 1,
+            'a.b[1]': 2,
+            'a.c[0]': 3,
+            'a.c[1]': 4,
+            'a.d[0][0][0]': 5,
+            'a.d[0][0][1]': 6,
+            'a.d[0][0][2]': 7,
+            'astring': 'Hello',
+        }
+        converted = nvp.util.get_hierarchical_dict(source)
+        self.assertEqual(converted, {
+            'a': {
+                'b': [1, 2],
+                'c': [3, 4],
+                'd': [
+                    [
+                        [5, 6, 7],
+                    ]
+                ],
+            },
+            'astring': 'Hello'
+        })
+
+    def test_convert_prefix_into_bracket_key(self):
+        # { 'foo': [{ 'bar': [...]}] }
+        prefix = 'L_FOO_0_BAR1'
+        converted = nvp.util.convert_prefix_into_bracket_key(prefix)
+        self.assertEqual(converted, 'FOO[0].BAR[1]')
+
+        # { 'foo': [[[{ 'bar': {} }]]] }
+        prefix = 'FOO_0_0_0_BAR'
+        converted = nvp.util.convert_prefix_into_bracket_key(prefix)
+        self.assertEqual(converted, 'FOO[0][0][0].BAR')
+
+    def test_detect_key_convention(self):
+        is_prefix = nvp.util.detect_key_convention('L_SOMEKEY0')
+        is_bracket = nvp.util.detect_key_convention('somekey[0]')
+        is_parentheses = nvp.util.detect_key_convention('somekey(0)')
+        is_none = nvp.util.detect_key_convention('somekey')
+
+        self.assertEqual(is_prefix, nvp.util.CONVENTION_PREFIX)
+        self.assertEqual(is_bracket, nvp.util.CONVENTION_BRACKET)
+        self.assertEqual(is_parentheses, nvp.util.CONVENTION_PARENTHESES)
         self.assertFalse(is_none)
 
-    def test_get_sequence_key_components_exception(self):
+    def test_parse_prefix_key_with_index(self):
+        parsed = nvp.util.parse_prefix_key_with_index('FOOBAR1337')
+        self.assertEqual(parsed, ('FOOBAR', 1337))
         self.assertRaises(ValueError,
-                          nvp.util.get_sequence_key_components,
-                          'invalid_sequence_type',
-                          'somekey')
+                          nvp.util.parse_prefix_key_with_index,
+                          'FOOBAR')
+
+    def test_parse_bracket_key_with_index(self):
+        parsed = nvp.util.parse_bracket_key_with_index('FOOBAR[1337]')
+        self.assertEqual(parsed, ('FOOBAR', 1337))
+        self.assertRaises(ValueError,
+                          nvp.util.parse_bracket_key_with_index,
+                          'FOOBAR')
+
+    def test_parse_parentheses_key_with_index(self):
+        parsed = nvp.util.parse_parentheses_key_with_index('FOOBAR(1337)')
+        self.assertEqual(parsed, ('FOOBAR', 1337))
+        self.assertRaises(ValueError,
+                          nvp.util.parse_parentheses_key_with_index,
+                          'FOOBAR')
+
+    def test_parse_key_with_index(self):
+        # Test one of the valid types. They are tested separately
+        # in more detail in the methods above.
+        parsed = nvp.util.parse_key_with_index('FOOBAR[1337]',
+                       convention=nvp.util.CONVENTION_BRACKET)
+        self.assertEqual(parsed, ('FOOBAR', 1337))
+
+        self.assertRaises(ValueError,
+                          nvp.util.parse_key_with_index,
+                          'somekey',
+                          'invalid_convention')
+
+    def test_generate_key(self):
+        # Bracket & parentheses convention is basic string concatination
+        components = ['foo[0]', 'bar[0]']
+        conv = nvp.util.CONVENTION_BRACKET
+        key = nvp.util.generate_key(components, convention=conv)
+        self.assertEqual(key, 'foo[0].bar[0]')
+
+        # The prefix type involves some logic which we should test
+        # In case value is intended to be within a sequence -> add prefix
+        conv = nvp.util.CONVENTION_PREFIX
+        components = ['FOO_0', 'BAR_1', 'ZAR_1337']
+        key = nvp.util.generate_key(components, convention=conv)
+        self.assertEqual(key, 'L_FOO_0_BAR_1_ZAR1337')
+
+    def test_generate_key_component(self):
+        args = ('FOO', 123)
+        f = nvp.util.generate_key_component
+
+        prefix = f(*args, convention=nvp.util.CONVENTION_PREFIX)
+        bracket = f(*args, convention=nvp.util.CONVENTION_BRACKET)
+        parentheses = f(*args, convention=nvp.util.CONVENTION_PARENTHESES)
+
+        self.assertEqual(prefix, 'FOO_123')
+        self.assertEqual(bracket, 'FOO[123]')
+        self.assertEqual(parentheses, 'FOO(123)')
+
+        self.assertRaises(ValueError,
+                          nvp.util.generate_key_component,
+                          'somekey',
+                          1337,
+                          'invalid_convention')
 
 
 class TestAPI(unittest.TestCase):

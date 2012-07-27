@@ -215,7 +215,7 @@ def parse_prefix_key_with_index(key):
     filtered key itself where ``key`` conforms to the prefix convention.
 
         >>> import nvp.util
-        >>> nvp.util.get_key_parentheses_sequence_components('FOOBAR0')
+        >>> nvp.util.parse_prefix_key_with_index('FOOBAR0')
         ('FOOBAR', 0)
 
     :param key: The key to retrieve sequence components from
@@ -240,7 +240,7 @@ def parse_bracket_key_with_index(key):
     filtered key itself where ``key`` conforms to the bracket convention.
 
         >>> import nvp.util
-        >>> nvp.util.get_key_bracket_sequence_components('foobar[0]')
+        >>> nvp.util.parse_bracket_key_with_index('foobar[0]')
         ('foobar', 0)
 
     :param key: The key to retrieve sequence components from
@@ -253,7 +253,7 @@ def parse_parentheses_key_with_index(key):
     filtered key itself where ``key`` conforms to the parentheses convention.
 
         >>> import nvp.util
-        >>> nvp.util.get_key_parentheses_sequence_components('foobar(0)')
+        >>> nvp.util.parse_parentheses_key_with_index('foobar(0)')
         ('foobar', 0)
 
     :param key: The key to retrieve sequence components from

@@ -92,15 +92,17 @@ def dumps(obj, convention=util.DEFAULT_CONVENTION):
     return urlencode(pairs)
 
 
-def dump(fp, convention=util.DEFAULT_CONVENTION):
-    """Encode given ``fp`` into an NVP query string.
-    Where ``fp`` is a file-like object supporting the ``write` operation.`
+def dump(obj, fp, convention=util.DEFAULT_CONVENTION):
+    """Encode given ``obj`` into an NVP query string.
+    Save the encoded value of ``obj`` to the file-like object ``fp``
+    which is required to support the ``write`` operation.
 
     :param obj: The dictionary to encode
+    :param fp: The file pointer in which the encoded value should be stored
     :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
     """
-    return dumps(fp.read(), convention=convention)
+    fp.write(dumps(obj, convention=convention))
 
 
 def loads(string,

@@ -226,14 +226,17 @@ def parse_hierarchical_key_path(key, strict_key_parsing=True):
     if not convention:
         return (initial_key, key)
 
-    try:
-        initial_key, index = parse_key_with_index(convention, initial_key)
-        key.insert(0, index)
-        return (initial_key, key)
-    except ValueError:
-        if strict_key_parsing:
-            traceback.print_exc()
-            raise
+    iteration = 0
+    while True:
+        try:
+            initial_key, index = parse_key_with_index(convention, initial_key)
+            key.insert(0, index)
+        except ValueError:
+            if not iteration and strict_key_parsing:
+                traceback.print_exc()
+                raise
+            break
+        iteration += 1
     return (initial_key, key)
 
 

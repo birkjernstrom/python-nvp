@@ -73,9 +73,7 @@ def is_non_string_sequence(obj):
 
     :param obj: The object to duck-type for sequence attributes
     """
-    return (hasattr(obj, '__getitem__') and
-            not hasattr(obj, 'join') and
-            not hasattr(obj, 'setdefault'))
+    return hasattr(obj, '__iter__') and not is_dict(obj)
 
 
 def sequence_has_index(sequence, index):

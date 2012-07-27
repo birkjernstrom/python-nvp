@@ -177,69 +177,6 @@ def convert_prefix_into_bracket_key(key):
     return KEY_HIERARCHY_SEPARATOR.join(converted)
 
 
-def parse_hierarchical_key_path(key, strict_key_parsing=True):
-    """Parse and retrieve a tuple reflecting the hierarchy
-    defined in the given raw ``key``.
-
-    The first item in the tuple is the parent key, i.e the key
-    which will be set in the top-level dictionary of the hierarchical
-    dictionary.
-
-    The second item is a list of keys representing children of the
-    parent key. In case the key is a string a dictionary is intended.
-    Otherwise an integer is returned in which case a list is expected.
-
-        >>> import nvp.util
-        >>> nvp.util.parse_hierarchical_key_path('foo.bar.a.b')
-        ('foo', ['bar', 'a', 'b'])
-        >>> nvp.util.parse_hierarchical_key_path('foo.bar[0].a')
-        ('foo', ['bar', 0, 'a'])
-        >>> nvp.util.parse_hierarchical_key_path('FOO_BAR_0_A')
-        ('FOO', ['BAR', 0, 'A'])
-
-    :param key: The raw key to retrieve hierarchy from
-    :param strict_key_parsing: Whether to raise an exception in case
-                               errors are found during parsing of the
-                               given key.
-    """
-    # Ensure we are dealing with a list of key components
-    # rather than the string representation of the entire key path.
-    if is_string(key):
-        # Convert keys of type prefix into the bracket convention
-        # prior to parsing them in order to avoid having to implement
-        # separate logic for the type since it is quite a weird convention.
-        key = convert_prefix_into_bracket_key(key)
-        key = key.split(KEY_HIERARCHY_SEPARATOR)
-
-    # In case the initial key item in the list of components is not
-    # a string we can return both the initial and remaining key
-    # components directly. Because in such case the key path has
-    # already been parsed.
-    initial_key = key.pop(0)
-    if not is_string(initial_key):
-        return (initial_key, key)
-
-    # Check whether the initial key is a representation of a
-    # sequence value, i.e list or tuple. Otherwise, there is
-    # no need to continue parsing the key path.
-    convention = detect_key_convention(initial_key)
-    if not convention:
-        return (initial_key, key)
-
-    iteration = 0
-    while True:
-        try:
-            initial_key, index = parse_key_with_index(convention, initial_key)
-            key.insert(0, index)
-        except ValueError:
-            if not iteration and strict_key_parsing:
-                traceback.print_exc()
-                raise
-            break
-        iteration += 1
-    return (initial_key, key)
-
-
 def detect_key_convention(key):
     """Detect whether given ``key`` represents a sequential value
     and which method we should utilize in case we need to parse
@@ -426,6 +363,71 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
 # INTERNAL FUNCTIONS
 ###############################################################################
 
+def _parse_hierarchical_key_path(key, strict_key_parsing=True):
+    """Parse and retrieve a tuple reflecting the hierarchy
+    defined in the given raw ``key``.
+
+    The first item in the tuple is the parent key, i.e the key
+    which will be set in the top-level dictionary of the hierarchical
+    dictionary.
+
+    The second item is a list of the remaining hierarchical keys
+    which have not been parsed - they should when the recursive
+    ``_convert_into_hierarchical_dict`` reaches their intended
+    depth and they are - at that level - considered the parent
+    key.
+
+        >>> import nvp.util
+        >>> nvp.util.parse_hierarchical_key_path('foo.bar.a.b')
+        ('foo', ['bar', 'a', 'b'])
+        >>> nvp.util.parse_hierarchical_key_path('foo.bar[0].a')
+        ('foo', ['bar[0]', 'a'])
+        >>> nvp.util.parse_hierarchical_key_path('FOO_BAR_0_A')
+        ('FOO', ['BAR0', 'A'])
+
+    :param key: The raw key to retrieve hierarchy from
+    :param strict_key_parsing: Whether to raise an exception in case
+                               errors are found during parsing of the
+                               given key.
+    """
+    # Ensure we are dealing with a list of key components
+    # rather than the string representation of the entire key path.
+    if is_string(key):
+        # Convert keys of type prefix into the bracket convention
+        # prior to parsing them in order to avoid having to implement
+        # separate logic for the type since it is quite a weird convention.
+        key = convert_prefix_into_bracket_key(key)
+        key = key.split(KEY_HIERARCHY_SEPARATOR)
+
+    # In case the initial key item in the list of components is not
+    # a string we can return both the initial and remaining key
+    # components directly. Because in such case the key path has
+    # already been parsed.
+    initial_key = key.pop(0)
+    if not is_string(initial_key):
+        return (initial_key, key)
+
+    # Check whether the initial key is a representation of a
+    # sequence value, i.e list or tuple. Otherwise, there is
+    # no need to continue parsing the key path.
+    convention = detect_key_convention(initial_key)
+    if not convention:
+        return (initial_key, key)
+
+    iteration = 0
+    while True:
+        try:
+            initial_key, index = parse_key_with_index(initial_key, convention)
+            key.insert(0, index)
+        except ValueError:
+            if not iteration and strict_key_parsing:
+                traceback.print_exc()
+                raise
+            break
+        iteration += 1
+    return (initial_key, key)
+
+
 def _parse_group_key_with_index(key, open_identifier, close_identifier):
     """Retrieve a tuple containing the sanitized value of the sequential
     ``key`` along with the list index contained in the raw ``key``.
@@ -561,7 +563,7 @@ def _convert_into_hierarchical_dict(destination,
 
     # Retrieve the current key, k, along with all the remaining keys
     # which are to be inserted in another iteration of this recursion.
-    k, remaining_ks = parse_hierarchical_key_path(keys, **kwargs)
+    k, remaining_ks = _parse_hierarchical_key_path(keys, **kwargs)
 
     # Check whether we are intended to set a key in a dict or append to a list
     is_current_sequential = is_non_string_sequence(destination)

@@ -377,8 +377,6 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(written_encoded_value, encoded_value)
 
     def test_load(self):
-        # TODO: Once dumps is implemented and not merely an alias
-        # to urllib.urlencode the value should be more complex here...
         value = {
             'foo': 'hello',
             'list': [
@@ -395,6 +393,25 @@ class TestAPI(unittest.TestCase):
         fp.close()
 
         self.assertEqual(loaded_value, value)
+
+    def test_dumps_with_key_filter(self):
+        def key_to_upper(key):
+            return key.upper()
+
+        to_dump = dict(a=1, b='2', c='3')
+        expected = 'A=1&B=2&C=3'.split('&')
+        dumped = nvp.dumps(to_dump, key_filter=key_to_upper)
+        dumped = sorted(dumped.split('&'))
+        self.assertEqual(expected, dumped)
+
+    def test_loads_with_key_filter(self):
+        def key_to_lower(key):
+            return key.lower()
+
+        to_loads = 'A=1&B=2&C=3'
+        expected = dict(a='1', b='2', c='3')
+        loaded = nvp.loads(to_loads, key_filter=key_to_lower)
+        self.assertEqual(expected, loaded)
 
 
 if __name__ == '__main__':

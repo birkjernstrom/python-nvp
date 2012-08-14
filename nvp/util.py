@@ -101,7 +101,9 @@ def sequence_has_index(sequence, index):
 # ENCODING & DECODING FUNCTIONS
 ###############################################################################
 
-def get_hierarchical_pairs(source, convention=DEFAULT_CONVENTION):
+def get_hierarchical_pairs(source,
+                           convention=DEFAULT_CONVENTION,
+                           key_filter=None):
     """Retrieve a list of tuples where the first item is the hierarchical
     key and the second its corresponding value.
 
@@ -111,12 +113,15 @@ def get_hierarchical_pairs(source, convention=DEFAULT_CONVENTION):
     :param source: The dictionary to convert into NVP pairs
     :param convention: The convention to utilize in encoding keys
                        corresponding to non-string sequences, e.g lists.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     """
     if not is_dict(source):
         message = 'Cannot generate NVP pairs for non-dict object: %s'
         raise ValueError(message % source)
 
-    return _convert_into_list(source, convention)
+    return _convert_into_list(source, convention, key_filter=key_filter)
 
 
 def get_hierarchical_dict(source, strict_key_parsing=True):
@@ -462,6 +467,7 @@ def _parse_group_key_with_index(key, open_identifier, close_identifier):
 
 def _convert_into_list(source,
                        convention,
+                       key_filter=None,
                        destination=None,
                        keys=None):
     """Recursively convert given ``source`` dictionary into NVP
@@ -473,10 +479,12 @@ def _convert_into_list(source,
     :param source: The dictionary to convert into NVP pairs
     :param convention: The convention to utilize in encoding keys
                           corresponding to non-string sequences, e.g lists.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     :param destination: The list in which pairs should be appended
     :param keys: List of key components in current NVP pair to generate
                  hierarchical key path from
-    :param depth: The current depth of the recursion
     """
     source_is_dict = is_dict(source)
     source_is_sequential = is_non_string_sequence(source)
@@ -488,6 +496,8 @@ def _convert_into_list(source,
     if not (source_is_dict or source_is_sequential):
         # Assign current pair
         path_k = generate_key(keys, convention=convention)
+        if key_filter is not None:
+            path_k = key_filter(path_k)
         destination.append((path_k, source))
         return destination
 
@@ -502,6 +512,7 @@ def _convert_into_list(source,
             inner_keys.append(k)
             destination = _convert_into_list(v, keys=inner_keys,
                                              convention=convention,
+                                             key_filter=key_filter,
                                              destination=destination)
 
         return destination
@@ -528,6 +539,7 @@ def _convert_into_list(source,
         index += 1
 
         destination = _convert_into_list(value, convention,
+                                         key_filter=key_filter,
                                          destination=destination,
                                          keys=inner_keys)
 

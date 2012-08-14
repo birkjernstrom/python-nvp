@@ -88,18 +88,25 @@ CONVENTION_PARENTHESES = util.CONVENTION_PARENTHESES
 # ENCODING & DECODING API
 ###############################################################################
 
-def dumps(obj, convention=util.DEFAULT_CONVENTION):
+def dumps(obj,
+          convention=util.DEFAULT_CONVENTION,
+          key_filter=None):
     """Encode given ``obj`` into an NVP query string.
 
     :param obj: The dictionary to encode
     :param convention: The convention to utilize in encoding keys
-                          corresponding to non-string sequences, e.g lists.
+                       corresponding to non-string sequences, e.g lists.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     """
-    pairs = util.get_hierarchical_pairs(obj, convention=convention)
-    return urlencode(pairs)
+    return urlencode(util.get_hierarchical_pairs(obj, convention=convention,
+                                                 key_filter=key_filter))
 
 
-def dump(obj, fp, convention=util.DEFAULT_CONVENTION):
+def dump(obj, fp,
+         convention=util.DEFAULT_CONVENTION,
+         key_filter=None):
     """Encode given ``obj`` into an NVP query string.
     Save the encoded value of ``obj`` to the file-like object ``fp``
     which is required to support the ``write`` operation.
@@ -107,16 +114,20 @@ def dump(obj, fp, convention=util.DEFAULT_CONVENTION):
     :param obj: The dictionary to encode
     :param fp: The file pointer in which the encoded value should be stored
     :param convention: The convention to utilize in encoding keys
-                          corresponding to non-string sequences, e.g lists.
+                       corresponding to non-string sequences, e.g lists.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     """
-    fp.write(dumps(obj, convention=convention))
+    fp.write(dumps(obj, convention=convention, key_filter=key_filter))
 
 
 def loads(string,
           keep_blank_values=False,
           strict_parsing=False,
           strict_key_parsing=True,
-          get_hierarchical=True):
+          get_hierarchical=True,
+          key_filter=None):
     """Decode given NVP ``string`` into a dictionary.
 
     :param string: The encoded NVP string to decode
@@ -126,6 +137,9 @@ def loads(string,
                                are found during parsing of given the NVP keys.
     :param get_hierarchical: Whether to decode into a single-level or
                              hierarchical dictionary.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     """
     # In case we receive an object which is considered False in an expression
     # we return an empty dictionary. The reason is because NVP is in essence
@@ -139,13 +153,16 @@ def loads(string,
     if not util.is_string(string):
         return string
 
-    unhierarchical = parse_qs(string,
-                              keep_blank_values=keep_blank_values,
-                              strict_parsing=strict_parsing)
+    params = parse_qs(string,
+                      keep_blank_values=keep_blank_values,
+                      strict_parsing=strict_parsing)
+
+    if key_filter is not None:
+        params = dict((key_filter(k), v) for k, v in params.iteritems())
 
     if not get_hierarchical:
-        return unhierarchical
-    return util.get_hierarchical_dict(unhierarchical,
+        return params
+    return util.get_hierarchical_dict(params,
                                       strict_key_parsing=strict_key_parsing)
 
 
@@ -153,7 +170,8 @@ def load(fp,
          keep_blank_values=False,
          strict_parsing=False,
          strict_key_parsing=True,
-         get_hierarchical=True):
+         get_hierarchical=True,
+         key_filter=None):
     """Decode given NVP ``fp`` into a dictionary.
     Where ``fp`` is a file-like object supporting the ``read`` operation.
 
@@ -164,6 +182,9 @@ def load(fp,
                                are found during parsing of given the NVP keys.
     :param get_hierarchical: Whether to decode into a single-level or
                              hierarchical dictionary.
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
     """
     kwargs = locals()
     del kwargs['fp']

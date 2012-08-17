@@ -8,23 +8,21 @@ NVP module is primarily intended to define the API.
 
 """
 
-import traceback
 
-
-#: Type identifier corresponding to keys of type L_SOMEKEY0
-CONVENTION_PREFIX = 'prefix'
 #: Type identifier corresponding to keys of type somekey[0]
 CONVENTION_BRACKET = 'bracket'
 #: Type identifier corresponding to keys of type somekey(0)
 CONVENTION_PARENTHESES = 'parentheses'
+#: Type identifier corresponding to keys of type L_SOMEKEY0
+CONVENTION_UNDERSCORE = 'underscore'
 #: The default type identifier to utilize if none other is specified
-DEFAULT_CONVENTION = CONVENTION_BRACKET
+DEFAULT_CONVENTION = CONVENTION_UNDERSCORE
 
 #: List of all available NVP conventions
 CONVENTIONS = [
-    CONVENTION_PREFIX,
     CONVENTION_BRACKET,
     CONVENTION_PARENTHESES,
+    CONVENTION_UNDERSCORE,
 ]
 
 #: The string which identifies additional hierarchical depth
@@ -34,16 +32,10 @@ CONVENTIONS = [
 KEY_HIERARCHY_SEPARATOR = '.'
 
 #: The string which identifies additional hierarchical depth
-#: in key paths of type *prefix*. In other words the key path
+#: in key paths of type *underscore*. In other words the key path
 #: ``FOO_BAR`` should correspond to a dictionary with the
 #: following structure: ``dict['foo']['bar']``
-KEY_PREFIX_HIERARCHY_SEPARATOR = '_'
-
-#: The string to prepend to keys of type ``prefix`` in case their
-#: value is sequential, i.e list or tuple.
-PREFIX_KEY_VALUE = 'L_'
-
-_PREFIX_KEY_VALUE_LEN = len(PREFIX_KEY_VALUE)
+KEY_UNDERSCORE_HIERARCHY_SEPARATOR = '_'
 
 
 ###############################################################################
@@ -124,14 +116,11 @@ def get_hierarchical_pairs(source,
     return _convert_into_list(source, convention, key_filter=key_filter)
 
 
-def get_hierarchical_dict(source, strict_key_parsing=True):
+def get_hierarchical_dict(source):
     """Retrieve a hierarchical dictionary corresponding to the
     hierarchy defined in the keys of the given ``source`` directory.
 
     :param source: The single-level dictionary to convert
-    :param strict_key_parsing: Whether to raise an exception in case
-                               errors are found during parsing of the
-                               given key.
     """
     ret = {}
     sorted_keys = sorted(source.keys())
@@ -139,7 +128,7 @@ def get_hierarchical_dict(source, strict_key_parsing=True):
 
     for key in sorted_keys:
         value = source[key]
-        ret = convert(ret, key, value, strict_key_parsing=strict_key_parsing)
+        ret = convert(ret, key, value)
     return ret
 
 
@@ -147,28 +136,25 @@ def get_hierarchical_dict(source, strict_key_parsing=True):
 # KEY PATH FUNCTIONS
 ###############################################################################
 
-def convert_prefix_into_bracket_key(key):
-    """Convert given ``key`` of type ``prefix`` into the same
+def convert_underscore_into_bracket_key(key):
+    """Convert given ``key`` of type ``underscore`` into the same
     hierarchical key in the ``bracket`` format.
 
         >>> import nvp.util
-        >>> nvp.util.convert_prefix_into_bracket_key('L_FOO_0_BAR1')
-        'FOO[0].BAR[1]'
+        >>> nvp.util.convert_underscore_into_bracket_key('L_FOO_0_BAR1')
+        'L.FOO[0].BAR[1]'
 
     :param key: The key to convert
     """
-    if key.find(KEY_PREFIX_HIERARCHY_SEPARATOR) == -1:
+    if key.find(KEY_UNDERSCORE_HIERARCHY_SEPARATOR) == -1:
         return key
-
-    if key.startswith(PREFIX_KEY_VALUE):
-        key = key[_PREFIX_KEY_VALUE_LEN:]
 
     def gen_component(prefix, index):
         return generate_key_component(prefix, index,
                                       convention=CONVENTION_BRACKET)
 
     converted = []
-    components = key.split(KEY_PREFIX_HIERARCHY_SEPARATOR)
+    components = key.split(KEY_UNDERSCORE_HIERARCHY_SEPARATOR)
     for component in components:
         try:
             index = int(component)
@@ -176,12 +162,12 @@ def convert_prefix_into_bracket_key(key):
         except ValueError:
             converted.append(component)
 
-    # In case the value is sequential the prefix convention requires
+    # In case the value is sequential the underscore convention requires
     # the index to be appended to the last key component string. Strange
     # convention since all other sequential indexes are separated with
     # underscores to the neighbour keys.
     try:
-        k, index = parse_prefix_key_with_index(converted[-1])
+        k, index = parse_underscore_key_with_index(converted[-1])
         converted[-1] = gen_component(k, index)
     except ValueError:
         pass
@@ -200,17 +186,13 @@ def detect_key_convention(key):
         'bracket'
         >>> nvp.util.detect_key_convention('foobar(0)')
         'parentheses'
-        >>> nvp.util.detect_key_convention('L_FOOBAR0')
-        'prefix'
+        >>> nvp.util.detect_key_convention('FOOBAR0')
+        'underscore'
         >>> nvp.util.detect_key_convention('foobar')
-        False
+        'underscore'
 
     :param key: The key to check
     """
-    # Sequence with key following L_KEYNAME0 standards.
-    if key.startswith(PREFIX_KEY_VALUE):
-        return CONVENTION_PREFIX
-
     last_character = key[-1]
 
     # Sequence with key following KEYNAME[0] standards
@@ -219,15 +201,15 @@ def detect_key_convention(key):
     # Sequence with key following KEYNAME(0) standards
     elif last_character == ')':
         return CONVENTION_PARENTHESES
-    return False
+    return CONVENTION_UNDERSCORE
 
 
-def parse_prefix_key_with_index(key):
+def parse_underscore_key_with_index(key):
     """Retrieve sequence index in given ``key`` along with the
-    filtered key itself where ``key`` conforms to the prefix convention.
+    filtered key itself where ``key`` conforms to the underscore convention.
 
         >>> import nvp.util
-        >>> nvp.util.parse_prefix_key_with_index('FOOBAR0')
+        >>> nvp.util.parse_underscore_key_with_index('FOOBAR0')
         ('FOOBAR', 0)
 
     :param key: The key to retrieve sequence components from
@@ -276,9 +258,9 @@ def parse_parentheses_key_with_index(key):
 #: Mapping of conventions and their corresponding functions to
 #: parse given key for key and index components
 _KEY_PARSERS = {
-    CONVENTION_PREFIX: parse_prefix_key_with_index,
     CONVENTION_BRACKET: parse_bracket_key_with_index,
     CONVENTION_PARENTHESES: parse_parentheses_key_with_index,
+    CONVENTION_UNDERSCORE: parse_underscore_key_with_index,
 }
 
 
@@ -289,7 +271,7 @@ def parse_key_with_index(key, convention=DEFAULT_CONVENTION):
     The method in which the index and sanitized key is detected is
     determined by given ``convention``. The supported types are::
 
-        prefix
+        underscore
             KEYNAME0 -> (keyname, 0)
             KEYNAME1 -> (keyname, 1)
         bracket
@@ -329,19 +311,14 @@ def generate_key(components, convention=DEFAULT_CONVENTION):
         convention == CONVENTION_PARENTHESES):
         return str(KEY_HIERARCHY_SEPARATOR).join(components)
 
-    is_value_sequential = False
     try:
         last_component = components[-1]
         key, index = last_component.split('_')
         components[-1] = '%s%s' % (key, index)
-        is_value_sequential = True
     except ValueError:
         pass
 
-    key_path = KEY_PREFIX_HIERARCHY_SEPARATOR.join(components)
-    if is_value_sequential:
-        key_path = '%s%s' % (PREFIX_KEY_VALUE, key_path)
-    return key_path
+    return KEY_UNDERSCORE_HIERARCHY_SEPARATOR.join(components)
 
 
 def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
@@ -364,8 +341,8 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
     if convention == CONVENTION_PARENTHESES:
         return '%s(%d)' % (key, index)
 
-    if convention == CONVENTION_PREFIX:
-        return '%s%s%d' % (key, KEY_PREFIX_HIERARCHY_SEPARATOR, index)
+    if convention == CONVENTION_UNDERSCORE:
+        return '%s%s%d' % (key, KEY_UNDERSCORE_HIERARCHY_SEPARATOR, index)
 
     message = 'Given convention is not one of the accepted values: %s'
     raise ValueError(message % CONVENTIONS)
@@ -375,7 +352,7 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
 # INTERNAL FUNCTIONS
 ###############################################################################
 
-def _parse_hierarchical_key_path(key, strict_key_parsing=True):
+def _parse_hierarchical_key_path(key):
     """Parse and retrieve a tuple reflecting the hierarchy
     defined in the given raw ``key``.
 
@@ -395,20 +372,17 @@ def _parse_hierarchical_key_path(key, strict_key_parsing=True):
         >>> nvp.util.parse_hierarchical_key_path('foo.bar[0].a')
         ('foo', ['bar[0]', 'a'])
         >>> nvp.util.parse_hierarchical_key_path('FOO_BAR_0_A')
-        ('FOO', ['BAR0', 'A'])
+        ('FOO', ['BAR_0', 'A'])
 
     :param key: The raw key to retrieve hierarchy from
-    :param strict_key_parsing: Whether to raise an exception in case
-                               errors are found during parsing of the
-                               given key.
     """
     # Ensure we are dealing with a list of key components
     # rather than the string representation of the entire key path.
     if is_string(key):
-        # Convert keys of type prefix into the bracket convention
+        # Convert keys of type underscore into the bracket convention
         # prior to parsing them in order to avoid having to implement
         # separate logic for the type since it is quite a weird convention.
-        key = convert_prefix_into_bracket_key(key)
+        key = convert_underscore_into_bracket_key(key)
         key = key.split(KEY_HIERARCHY_SEPARATOR)
 
     # In case the initial key item in the list of components is not
@@ -426,17 +400,12 @@ def _parse_hierarchical_key_path(key, strict_key_parsing=True):
     if not convention:
         return (initial_key, key)
 
-    iteration = 0
     while True:
         try:
             initial_key, index = parse_key_with_index(initial_key, convention)
             key.insert(0, index)
         except ValueError:
-            if not iteration and strict_key_parsing:
-                traceback.print_exc()
-                raise
             break
-        iteration += 1
     return (initial_key, key)
 
 
@@ -548,8 +517,7 @@ def _convert_into_list(source,
 
 def _convert_into_hierarchical_dict(destination,
                                     keys,
-                                    value,
-                                    strict_key_parsing=True):
+                                    value):
     """Recursively convert given ``destination`` into a hierarchical
     dictionary which mirrors the hierarchy defined in the keys of the
     initial ``destination`` given.
@@ -557,9 +525,6 @@ def _convert_into_hierarchical_dict(destination,
     :param destination: The object in which all values should be assigned
     :param keys: List of components found in the single-level dictionary key
     :param value: The value to assign
-    :param strict_key_parsing: Whether to raise an exception in case errors
-                               are found during parsing of the initial keys
-                               in the single-level dictionary.
     """
     # Since this function is recursive we might end up with an empty
     # list of keys. In which case we should return the sanitized value
@@ -578,11 +543,9 @@ def _convert_into_hierarchical_dict(destination,
             value = value[0]
         return value
 
-    kwargs = dict(strict_key_parsing=strict_key_parsing)
-
     # Retrieve the current key, k, along with all the remaining keys
     # which are to be inserted in another iteration of this recursion.
-    k, remaining_ks = _parse_hierarchical_key_path(keys, **kwargs)
+    k, remaining_ks = _parse_hierarchical_key_path(keys)
 
     # Check whether we are intended to set a key in a dict or append to a list
     is_current_sequential = is_non_string_sequence(destination)
@@ -610,6 +573,6 @@ def _convert_into_hierarchical_dict(destination,
 
     destination[k] = _convert_into_hierarchical_dict(destination[k],
                                                      remaining_ks,
-                                                     value, **kwargs)
+                                                     value)
 
     return destination

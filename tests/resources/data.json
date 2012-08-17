@@ -16,7 +16,7 @@
         "regular_url_query": {
             "bracket": "MIDDLENAME%5B0%5D=Herbert&LASTNAME%5B0%5D=Moore&FIRSTNAME%5B0%5D=Robert", 
             "parentheses": "MIDDLENAME%280%29=Herbert&LASTNAME%280%29=Moore&FIRSTNAME%280%29=Robert", 
-            "prefix": "L_MIDDLENAME0=Herbert&L_LASTNAME0=Moore&L_FIRSTNAME0=Robert"
+            "underscore": "MIDDLENAME0=Herbert&LASTNAME0=Moore&FIRSTNAME0=Robert"
         }
     }
 }

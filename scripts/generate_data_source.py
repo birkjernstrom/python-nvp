@@ -14,6 +14,7 @@ import sys
 import json
 import os.path
 
+
 def get_relative_as_abspath(path):
     return os.path.abspath(os.path.join(__file__, '../' + path))
 
@@ -43,9 +44,9 @@ DECODED = {
     },
 }
 
-cprefix = nvp.util.CONVENTION_PREFIX
 cbracket = nvp.util.CONVENTION_BRACKET
 cparentheses = nvp.util.CONVENTION_PARENTHESES
+cundersore = nvp.util.CONVENTION_UNDERSCORE
 
 # Dictionary containing encoded values
 ENCODED = {}

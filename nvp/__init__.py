@@ -29,22 +29,29 @@ There are two other methods of achieving this in NVP. Sigh.
 Instead of brackets parentheses are supported too. In which case the
 previous query string could be re-written using this convention to::
 
-    ?foo(0).a=1&foo(0).b=2&foo(1)='helloworld'&foobar=1337
+    foo(0).a=1&foo(0).b=2&foo(1)='helloworld'&foobar=1337
 
-The last method is using underscores to represent the hierarchy along with
-prefixing the key with L_ in case the value belongs in a sequential data
-structure. In such case the final key component will have the index
-appended to itself; L_BAR1 indicates the second value in the BAR list.
+The last method is the default one which uses underscores to indicate
+hierarchical depth. In other words FOO_0_BAR in the underscore convention
+is the same as FOO[0].BAR in the bracket convention. However, there is one
+significant difference and that is how list values are represented. In
+such cases the underscore convention is a bit tricky in that it appends
+the final index to the last hierarchical key. For instance the following
+data structure:
 
-Sequential data structures in the hierarchy which are not the direct value
-do, however, not have their corresponding indexes represented by appending
-them to their key component. Instead they are separated by underscore too.
+    {
+        'foo': [
+            {
+                'a': [1, 2, 3]
+            }
+        ]
+    }
 
-Thus the previous query string in the prefix convention is::
+Would, using the underscore convention, result in the following string:
 
-    ?FOO_0_A=1&FOO_0_B=2&L_FOO1='helloworld'&FOOBAR=1337
+    foo_0_a0=1&foo_0_a1=2&foo_0_a2=3
 
-The prefix convention - as shown above - have uppercased keys in general.
+The underscore convention - as shown above - have uppercased keys in general.
 
 The NVP format was introduced by PayPal and is heavily utilized in
 their API suites. More information about the format is thus best found
@@ -79,9 +86,9 @@ from nvp import util
 
 # Convention aliases
 CONVENTIONS = util.CONVENTIONS
-CONVENTION_PREFIX = util.CONVENTION_PREFIX
 CONVENTION_BRACKET = util.CONVENTION_BRACKET
 CONVENTION_PARENTHESES = util.CONVENTION_PARENTHESES
+CONVENTION_UNDERSCORE = util.CONVENTION_UNDERSCORE
 
 
 ###############################################################################
@@ -125,7 +132,6 @@ def dump(obj, fp,
 def loads(string,
           keep_blank_values=False,
           strict_parsing=False,
-          strict_key_parsing=True,
           get_hierarchical=True,
           key_filter=None):
     """Decode given NVP ``string`` into a dictionary.
@@ -133,8 +139,6 @@ def loads(string,
     :param string: The encoded NVP string to decode
     :param keep_blank_values: Whether to retain keys with undefined values
     :param strict_parsing: Whether to use strict parsing of the query string
-    :param strict_key_parsing: Whether to raise an exception in case errors
-                               are found during parsing of given the NVP keys.
     :param get_hierarchical: Whether to decode into a single-level or
                              hierarchical dictionary.
     :param key_filter: Function in which all keys should be filtered through.
@@ -153,23 +157,19 @@ def loads(string,
     if not util.is_string(string):
         return string
 
-    params = parse_qs(string,
-                      keep_blank_values=keep_blank_values,
-                      strict_parsing=strict_parsing)
+    params = parse_qs(string, keep_blank_values=keep_blank_values)
 
     if key_filter is not None:
         params = dict((key_filter(k), v) for k, v in params.iteritems())
 
     if not get_hierarchical:
         return params
-    return util.get_hierarchical_dict(params,
-                                      strict_key_parsing=strict_key_parsing)
+    return util.get_hierarchical_dict(params)
 
 
 def load(fp,
          keep_blank_values=False,
          strict_parsing=False,
-         strict_key_parsing=True,
          get_hierarchical=True,
          key_filter=None):
     """Decode given NVP ``fp`` into a dictionary.
@@ -178,8 +178,6 @@ def load(fp,
     :param fp: File-like object supporting the read operation
     :param keep_blank_values: Whether to retain keys with undefined values
     :param strict_parsing: Whether to use strict parsing of the query string
-    :param strict_key_parsing: Whether to raise an exception in case errors
-                               are found during parsing of given the NVP keys.
     :param get_hierarchical: Whether to decode into a single-level or
                              hierarchical dictionary.
     :param key_filter: Function in which all keys should be filtered through.

@@ -151,33 +151,33 @@ class TestUtils(unittest.TestCase):
             'astring': 'Hello'
         })
 
-    def test_convert_prefix_into_bracket_key(self):
+    def test_convert_underscore_into_bracket_key(self):
         # { 'foo': [{ 'bar': [...]}] }
-        prefix = 'L_FOO_0_BAR1'
-        converted = nvp.util.convert_prefix_into_bracket_key(prefix)
-        self.assertEqual(converted, 'FOO[0].BAR[1]')
+        underscore = 'L_FOO_0_BAR1'
+        converted = nvp.util.convert_underscore_into_bracket_key(underscore)
+        self.assertEqual(converted, 'L.FOO[0].BAR[1]')
 
         # { 'foo': [[[{ 'bar': {} }]]] }
-        prefix = 'FOO_0_0_0_BAR'
-        converted = nvp.util.convert_prefix_into_bracket_key(prefix)
+        underscore = 'FOO_0_0_0_BAR'
+        converted = nvp.util.convert_underscore_into_bracket_key(underscore)
         self.assertEqual(converted, 'FOO[0][0][0].BAR')
 
     def test_detect_key_convention(self):
-        is_prefix = nvp.util.detect_key_convention('L_SOMEKEY0')
+        is_underscore = nvp.util.detect_key_convention('L_SOMEKEY0')
         is_bracket = nvp.util.detect_key_convention('somekey[0]')
         is_parentheses = nvp.util.detect_key_convention('somekey(0)')
-        is_none = nvp.util.detect_key_convention('somekey')
+        is_underscore_default = nvp.util.detect_key_convention('somekey')
 
-        self.assertEqual(is_prefix, nvp.util.CONVENTION_PREFIX)
+        self.assertEqual(is_underscore, nvp.util.CONVENTION_UNDERSCORE)
         self.assertEqual(is_bracket, nvp.util.CONVENTION_BRACKET)
         self.assertEqual(is_parentheses, nvp.util.CONVENTION_PARENTHESES)
-        self.assertFalse(is_none)
+        self.assertEqual(is_underscore_default, nvp.util.CONVENTION_UNDERSCORE)
 
-    def test_parse_prefix_key_with_index(self):
-        parsed = nvp.util.parse_prefix_key_with_index('FOOBAR1337')
+    def test_parse_underscore_key_with_index(self):
+        parsed = nvp.util.parse_underscore_key_with_index('FOOBAR1337')
         self.assertEqual(parsed, ('FOOBAR', 1337))
         self.assertRaises(ValueError,
-                          nvp.util.parse_prefix_key_with_index,
+                          nvp.util.parse_underscore_key_with_index,
                           'FOOBAR')
 
     def test_parse_bracket_key_with_index(self):
@@ -213,10 +213,8 @@ class TestUtils(unittest.TestCase):
         key = nvp.util.generate_key(components, convention=conv)
         self.assertEqual(key, 'foo[0].bar[0]')
 
-        # The prefix type involves some logic which we should test
-        # In case value is intended to be within a sequence -> add prefix
-        conv = nvp.util.CONVENTION_PREFIX
-        components = ['FOO_0', 'BAR_1', 'ZAR_1337']
+        conv = nvp.util.CONVENTION_UNDERSCORE
+        components = ['L', 'FOO_0', 'BAR_1', 'ZAR_1337']
         key = nvp.util.generate_key(components, convention=conv)
         self.assertEqual(key, 'L_FOO_0_BAR_1_ZAR1337')
 
@@ -224,11 +222,11 @@ class TestUtils(unittest.TestCase):
         args = ('FOO', 123)
         f = nvp.util.generate_key_component
 
-        prefix = f(*args, convention=nvp.util.CONVENTION_PREFIX)
+        underscore = f(*args, convention=nvp.util.CONVENTION_UNDERSCORE)
         bracket = f(*args, convention=nvp.util.CONVENTION_BRACKET)
         parentheses = f(*args, convention=nvp.util.CONVENTION_PARENTHESES)
 
-        self.assertEqual(prefix, 'FOO_123')
+        self.assertEqual(underscore, 'FOO_123')
         self.assertEqual(bracket, 'FOO[123]')
         self.assertEqual(parentheses, 'FOO(123)')
 

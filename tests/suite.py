@@ -411,6 +411,25 @@ class TestAPI(unittest.TestCase):
         loaded = nvp.loads(to_loads, key_filter=key_to_lower)
         self.assertEqual(expected, loaded)
 
+    def test_dumps_with_value_filter(self):
+        def value_filter(value):
+            return value * 10
+
+        to_dump = dict(a=1, b=2, c=3)
+        expected = 'a=10&b=20&c=30'.split('&')
+        dumped = nvp.dumps(to_dump, value_filter=value_filter)
+        dumped = sorted(dumped.split('&'))
+        self.assertEqual(expected, dumped)
+
+    def test_loads_with_value_filter(self):
+        def value_filter(value):
+            return int(value[0]) / 10
+
+        to_loads = 'a=10&b=20&c=30'
+        expected = dict(a=1, b=2, c=3)
+        loaded = nvp.loads(to_loads, value_filter=value_filter)
+        self.assertEqual(expected, loaded)
+
 
 if __name__ == '__main__':
     unittest.main()

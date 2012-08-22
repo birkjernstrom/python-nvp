@@ -137,9 +137,19 @@ def get_filtered_pairs(source, key_filter=None, value_filter=None):
     if not (key_filter or value_filter):
         return source
 
+    # Ensure callable filters exists prior to execution
     key_filter = key_filter if key_filter else lambda k: k
     value_filter = value_filter if value_filter else lambda v: v
-    return [(key_filter(k), value_filter(v)) for k, v in source.iteritems()]
+
+    def filter_values(values):
+        # Since source is expected to be a dictionary retrived via
+        # urlparse.parse_qs all values are expected to be contained
+        # within a list. Therefore, we should execute the filter on
+        # each contained item if that is indeed the case.
+        if not is_non_string_sequence(values):
+            return value_filter(values)
+        return [value_filter(v) for v in values]
+    return [(key_filter(k), filter_values(v)) for k, v in source.iteritems()]
 
 
 def get_hierarchical_dict(source):

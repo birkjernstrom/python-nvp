@@ -95,7 +95,8 @@ def sequence_has_index(sequence, index):
 
 def get_hierarchical_pairs(source,
                            convention=DEFAULT_CONVENTION,
-                           key_filter=None):
+                           key_filter=None,
+                           value_filter=None):
     """Retrieve a list of tuples where the first item is the hierarchical
     key and the second its corresponding value.
 
@@ -108,12 +109,37 @@ def get_hierarchical_pairs(source,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 encode values for
+                         example.
     """
     if not is_dict(source):
         message = 'Cannot generate NVP pairs for non-dict object: %s'
         raise ValueError(message % source)
 
-    return _convert_into_list(source, convention, key_filter=key_filter)
+    return _convert_into_list(
+        source, convention, key_filter=key_filter, value_filter=value_filter,
+    )
+
+
+def get_filtered_pairs(source, key_filter=None, value_filter=None):
+    """Retrieve key-value pairs in given ``source`` dict and filter
+    all keys via ``key_filter`` and values via ``value_filter``.
+
+    :param source: The source dict containing key-values to be filtered
+    :param key_filter: Function in which all keys should be filtered through.
+                       Allowing key conversion from lowercase to uppercase
+                       or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 encode values for
+                         example.
+    """
+    if not (key_filter or value_filter):
+        return source
+
+    key_filter = key_filter if key_filter else lambda k: k
+    value_filter = value_filter if value_filter else lambda v: v
+    return [(key_filter(k), value_filter(v)) for k, v in source.iteritems()]
 
 
 def get_hierarchical_dict(source):
@@ -437,6 +463,7 @@ def _parse_group_key_with_index(key, open_identifier, close_identifier):
 def _convert_into_list(source,
                        convention,
                        key_filter=None,
+                       value_filter=None,
                        destination=None,
                        keys=None):
     """Recursively convert given ``source`` dictionary into NVP
@@ -451,6 +478,9 @@ def _convert_into_list(source,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 encode values for
+                         example.
     :param destination: The list in which pairs should be appended
     :param keys: List of key components in current NVP pair to generate
                  hierarchical key path from
@@ -467,6 +497,10 @@ def _convert_into_list(source,
         path_k = generate_key(keys, convention=convention)
         if key_filter is not None:
             path_k = key_filter(path_k)
+
+        if value_filter is not None:
+            source = value_filter(source)
+
         destination.append((path_k, source))
         return destination
 
@@ -482,6 +516,7 @@ def _convert_into_list(source,
             destination = _convert_into_list(v, keys=inner_keys,
                                              convention=convention,
                                              key_filter=key_filter,
+                                             value_filter=value_filter,
                                              destination=destination)
 
         return destination
@@ -509,6 +544,7 @@ def _convert_into_list(source,
 
         destination = _convert_into_list(value, convention,
                                          key_filter=key_filter,
+                                         value_filter=value_filter,
                                          destination=destination,
                                          keys=inner_keys)
 

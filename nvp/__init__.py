@@ -97,7 +97,8 @@ CONVENTION_UNDERSCORE = util.CONVENTION_UNDERSCORE
 
 def dumps(obj,
           convention=util.DEFAULT_CONVENTION,
-          key_filter=None):
+          key_filter=None,
+          value_filter=None):
     """Encode given ``obj`` into an NVP query string.
 
     :param obj: The dictionary to encode
@@ -106,14 +107,21 @@ def dumps(obj,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 encode values for
+                         example.
     """
-    return urlencode(util.get_hierarchical_pairs(obj, convention=convention,
-                                                 key_filter=key_filter))
+    return urlencode(util.get_hierarchical_pairs(
+        obj, convention=convention,
+        key_filter=key_filter, value_filter=value_filter,
+    ))
 
 
-def dump(obj, fp,
+def dump(obj,
+         fp,
          convention=util.DEFAULT_CONVENTION,
-         key_filter=None):
+         key_filter=None,
+         value_filter=None):
     """Encode given ``obj`` into an NVP query string.
     Save the encoded value of ``obj`` to the file-like object ``fp``
     which is required to support the ``write`` operation.
@@ -125,15 +133,21 @@ def dump(obj, fp,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 encode values for
+                         example.
     """
-    fp.write(dumps(obj, convention=convention, key_filter=key_filter))
+    kwargs = locals()
+    del kwargs['fp']
+    fp.write(dumps(**kwargs))
 
 
 def loads(string,
           keep_blank_values=False,
           strict_parsing=False,
           get_hierarchical=True,
-          key_filter=None):
+          key_filter=None,
+          value_filter=None):
     """Decode given NVP ``string`` into a dictionary.
 
     :param string: The encoded NVP string to decode
@@ -144,6 +158,9 @@ def loads(string,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 decode values for
+                         example.
     """
     # In case we receive an object which is considered False in an expression
     # we return an empty dictionary. The reason is because NVP is in essence
@@ -157,11 +174,12 @@ def loads(string,
     if not util.is_string(string):
         return string
 
-    params = parse_qs(string, keep_blank_values=keep_blank_values)
+    pairs = util.get_filtered_pairs(
+        parse_qs(string, keep_blank_values=keep_blank_values),
+        key_filter=key_filter, value_filter=value_filter,
+    )
 
-    if key_filter is not None:
-        params = dict((key_filter(k), v) for k, v in params.iteritems())
-
+    params = dict(pairs)
     if not get_hierarchical:
         return params
     return util.get_hierarchical_dict(params)
@@ -171,7 +189,8 @@ def load(fp,
          keep_blank_values=False,
          strict_parsing=False,
          get_hierarchical=True,
-         key_filter=None):
+         key_filter=None,
+         value_filter=None):
     """Decode given NVP ``fp`` into a dictionary.
     Where ``fp`` is a file-like object supporting the ``read`` operation.
 
@@ -183,6 +202,9 @@ def load(fp,
     :param key_filter: Function in which all keys should be filtered through.
                        Allowing key conversion from lowercase to uppercase
                        or vice versa for example.
+    :param value_filter: Function in which all values should be filtered
+                         through. In order to UTF-8 decode values for
+                         example.
     """
     kwargs = locals()
     del kwargs['fp']

@@ -19,6 +19,8 @@ import json
 import os.path
 import unittest
 
+from urllib import urlencode
+
 try:
     # Utilize built-in collections.OrderedDict if Python >= 2.7
     from collections import OrderedDict as _BuiltinOrderedDict
@@ -423,12 +425,69 @@ class TestAPI(unittest.TestCase):
 
     def test_loads_with_value_filter(self):
         def value_filter(value):
-            return int(value[0]) / 10
+            return int(value) / 10
 
         to_loads = 'a=10&b=20&c=30'
         expected = dict(a=1, b=2, c=3)
         loaded = nvp.loads(to_loads, value_filter=value_filter)
         self.assertEqual(expected, loaded)
+
+    def test_dumps_list_impostors(self):
+        to_dumps = {
+            'a': 'Hello',
+            'a': 'Hello',
+            'b': 'Goodbye',
+            'b2': 'I-try-to-be-a-list',
+            'l': {
+                'foo': [{
+                    'bar': ['1', '2'],
+                    'bar33': 'haha',
+                }],
+                'foo_33': {
+                    'bar': ['muhaha'],
+                },
+            },
+        }
+        dumped = nvp.dumps(to_dumps, convention=nvp.CONVENTION_UNDERSCORE)
+        dumped = sorted(dumped.split('&'))
+        expected = sorted(urlencode({
+            'a': 'Hello',
+            'a': 'Hello',
+            'b': 'Goodbye',
+            'b2': 'I-try-to-be-a-list',
+            'l_foo_0_bar0': '1',
+            'l_foo_0_bar1': '2',
+            'l_foo_0_bar33': 'haha',
+            'l_foo_33_bar0': 'muhaha',
+        }).split('&'))
+        self.assertEqual(dumped, expected)
+
+    def test_loads_list_impostors(self):
+        to_loads = urlencode({
+            'a': 'Hello',
+            'b': 'Goodbye',
+            'b2': 'I-try-to-be-a-list',
+            'l_foo_0_bar0': '1',
+            'l_foo_0_bar1': '2',
+            'l_foo_0_bar33': 'haha',
+            'l_foo_33_bar0': 'muhaha',
+        })
+        loaded = nvp.loads(to_loads)
+        self.assertEqual(loaded, {
+            'a': 'Hello',
+            'a': 'Hello',
+            'b': 'Goodbye',
+            'b2': 'I-try-to-be-a-list',
+            'l': {
+                'foo': [{
+                    'bar': ['1', '2'],
+                    'bar33': 'haha',
+                }],
+                'foo_33': {
+                    'bar': ['muhaha'],
+                },
+            },
+        })
 
 
 if __name__ == '__main__':

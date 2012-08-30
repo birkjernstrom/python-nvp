@@ -164,7 +164,7 @@ def get_hierarchical_dict(source):
 
     for key in sorted_keys:
         value = source[key]
-        ret = convert(ret, key, value)
+        ret = convert(ret, key, value, convention=detect_key_convention(key))
     return ret
 
 
@@ -357,7 +357,10 @@ def generate_key(components, convention=DEFAULT_CONVENTION):
     return KEY_UNDERSCORE_HIERARCHY_SEPARATOR.join(components)
 
 
-def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
+def generate_key_component(key,
+                           index,
+                           convention=DEFAULT_CONVENTION,
+                           with_separator=True):
     """Generate sequence key component according to NVP convention of type
     specified in ``convention``.
 
@@ -369,7 +372,11 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
     :param key: The pure key without sequential index referencing
     :param index: The sequence index to encode in the sequence key
     :param convention: The convention to utilize in encoding keys
-                          corresponding to non-string sequences, e.g lists.
+                       corresponding to non-string sequences, e.g lists.
+    :param with_separator: In case the convention is ``underscore`` this
+                           parameter will determine whether to include the
+                           underscore separator or not in the generated
+                           key component, e.g either foo_1 or foo1
     """
     if convention == CONVENTION_BRACKET:
         return '%s[%d]' % (key, index)
@@ -378,6 +385,8 @@ def generate_key_component(key, index, convention=DEFAULT_CONVENTION):
         return '%s(%d)' % (key, index)
 
     if convention == CONVENTION_UNDERSCORE:
+        if not with_separator:
+            return '%s%s' % (key, index)
         return '%s%s%d' % (key, KEY_UNDERSCORE_HIERARCHY_SEPARATOR, index)
 
     message = 'Given convention is not one of the accepted values: %s'
@@ -563,7 +572,9 @@ def _convert_into_list(source,
 
 def _convert_into_hierarchical_dict(destination,
                                     keys,
-                                    value):
+                                    value,
+                                    convention=DEFAULT_CONVENTION,
+                                    depth=0):
     """Recursively convert given ``destination`` into a hierarchical
     dictionary which mirrors the hierarchy defined in the keys of the
     initial ``destination`` given.
@@ -602,14 +613,30 @@ def _convert_into_hierarchical_dict(destination,
     # case we need to initialize a list in this recursion rather than
     # a dictionary which is default.
     try:
-        is_next_sequential = is_int(remaining_ks[0])
+        index = int(remaining_ks[0])
+        if (index == 0 or
+            (is_non_string_sequence(destination[k]) and
+            sequence_has_index(destination[k], (index - 1)))):
+            # In the case of the next key being an integer we are
+            # supposed to treat the current key as a container of a list.
+            # However, we cannot in case the index is not zero nor the
+            # incremental value of the current, highest, index in the list.
+            # Otherwise, we will trigger an IndexError when attempting to
+            # insert the intended value at an index out of range.
+            target = []
+        else:
+            # The index has proven to be out of range in advance and we
+            # should therefore fallback to setting the target to a dictionary.
+            # We also need to re-generate the current key so that it contains
+            # the incorrect index which should be treated as apart of the key
+            # rather than an index.
+            target = {}
+            del remaining_ks[0]
+            k = generate_key_component(k, index,
+                                       convention=convention,
+                                       with_separator=len(remaining_ks))
     except (IndexError, ValueError):
-        is_next_sequential = False
-
-    # Assign either an empty list or dictionary to target which will be
-    # the variable assigned to destination[k] unless it has already
-    # been initialized in a previous recursion.
-    target = [] if is_next_sequential else {}
+        target = {}
 
     # Ensure we initialize destination[k] prior to assigning values to it.
     if is_current_sequential and not sequence_has_index(destination, k):
@@ -619,6 +646,8 @@ def _convert_into_hierarchical_dict(destination,
 
     destination[k] = _convert_into_hierarchical_dict(destination[k],
                                                      remaining_ks,
-                                                     value)
+                                                     value,
+                                                     convention=convention,
+                                                     depth=(depth + 1))
 
     return destination

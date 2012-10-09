@@ -604,18 +604,36 @@ def _convert_into_hierarchical_dict(destination,
     # which are to be inserted in another iteration of this recursion.
     k, remaining_ks = _parse_hierarchical_key_path(keys)
 
+    try:
+        # Retrieve the next key and check whether it is an integer
+        # which would then suggest that the values should be stored
+        # in a list unless the index is out of range.
+        next_k = remaining_ks[0]
+        is_next_k_an_int = is_int(next_k)
+    except IndexError:
+        next_k = ''
+        is_next_k_an_int = False
+
     # Check whether we are intended to set a key in a dict or append to a list
     is_current_sequential = is_non_string_sequence(destination)
+
+    target = {}
 
     # We need to be aware of whether the next recursion has the intention
     # of appending values to a list or set keys in a dictionary. Thus
     # we check whether the next key in the list is an integer - in which
     # case we need to initialize a list in this recursion rather than
     # a dictionary which is default.
-    try:
-        index = int(remaining_ks[0])
+    if is_next_k_an_int:
+        index = int(next_k)
+        if is_current_sequential:
+            destination_has_k = sequence_has_index(destination, k)
+        else:
+            destination_has_k = (k in destination)
+
         if (index == 0 or
-            (is_non_string_sequence(destination[k]) and
+            (destination_has_k and
+            is_non_string_sequence(destination[k]) and
             sequence_has_index(destination[k], (index - 1)))):
             # In the case of the next key being an integer we are
             # supposed to treat the current key as a container of a list.
@@ -630,13 +648,10 @@ def _convert_into_hierarchical_dict(destination,
             # We also need to re-generate the current key so that it contains
             # the incorrect index which should be treated as apart of the key
             # rather than an index.
-            target = {}
-            del remaining_ks[0]
+            next_k = remaining_ks.pop(0)
             k = generate_key_component(k, index,
                                        convention=convention,
                                        with_separator=len(remaining_ks))
-    except (IndexError, ValueError):
-        target = {}
 
     # Ensure we initialize destination[k] prior to assigning values to it.
     if is_current_sequential and not sequence_has_index(destination, k):

@@ -439,6 +439,8 @@ class TestAPI(unittest.TestCase):
             'b': 'Goodbye',
             'b2': 'I-try-to-be-a-list',
             'l': {
+                'desc1': '1',
+                'desc2': '2',
                 'foo': [{
                     'bar': ['1', '2'],
                     'bar33': 'haha',
@@ -455,6 +457,8 @@ class TestAPI(unittest.TestCase):
             'a': 'Hello',
             'b': 'Goodbye',
             'b2': 'I-try-to-be-a-list',
+            'l_desc1': '1',
+            'l_desc2': '2',
             'l_foo_0_bar0': '1',
             'l_foo_0_bar1': '2',
             'l_foo_0_bar33': 'haha',
@@ -467,10 +471,13 @@ class TestAPI(unittest.TestCase):
             'a': 'Hello',
             'b': 'Goodbye',
             'b2': 'I-try-to-be-a-list',
+            'l_desc1': '1',
+            'l_desc2': '2',
             'l_foo_0_bar0': '1',
             'l_foo_0_bar1': '2',
             'l_foo_0_bar33': 'haha',
             'l_foo_33_bar0': 'muhaha',
+            'l_not-a-list_1_bar': 'evil',
         })
         loaded = nvp.loads(to_loads)
         self.assertEqual(loaded, {
@@ -479,6 +486,8 @@ class TestAPI(unittest.TestCase):
             'b': 'Goodbye',
             'b2': 'I-try-to-be-a-list',
             'l': {
+                'desc1': '1',
+                'desc2': '2',
                 'foo': [{
                     'bar': ['1', '2'],
                     'bar33': 'haha',
@@ -486,6 +495,9 @@ class TestAPI(unittest.TestCase):
                 'foo_33': {
                     'bar': ['muhaha'],
                 },
+                'not-a-list_1': {
+                    'bar': 'evil',
+                }
             },
         })
 
